@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 
 // Import Pages
 import Auth from './pages/Auth';
-// TODO: Create/Import these pages from your Lovable code
+// TODO: Create/Import these pages as we build
 // import Dashboard from './pages/Dashboard';
 // import Receive from './pages/Receive';
 // import Debts from './pages/Debts';
@@ -44,10 +44,10 @@ export default function App() {
           ) : (
             /* Authenticated Routes: The Main App */
             <>
-              {/* Replace these placeholder divs with your actual Lovable components once you import them */}
+              {/* Replace these placeholder divs with actual components once imported */}
               <Route path="/" element={
                 <div className="p-8 text-center text-kobo-blue font-bold text-xl">
-                  Dashboard Component goes here!
+                  Coming Soon!
                   <button onClick={handleLogout} className="block mx-auto mt-4 text-sm text-red-500 underline">Logout</button>
                 </div>
               } />
