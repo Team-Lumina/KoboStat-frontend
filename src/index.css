@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-kobo-navy: #0F172A;
+  --color-kobo-blue: #2563EB;
+  --color-kobo-success: #10B981;
+  --color-kobo-warning: #F59E0B;
+  --color-kobo-lightBg: #F8FAFC;
+  --color-kobo-darkBg: #000000;
+  --color-kobo-darkCard: #111827;
+}
