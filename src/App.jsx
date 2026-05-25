@@ -1,66 +1,99 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useTheme } from './context/ThemeContext';
 
 // Import Pages
 import Auth from './pages/Auth';
-// TODO: Create/Import these pages from your Lovable code
-// import Dashboard from './pages/Dashboard';
-// import Receive from './pages/Receive';
-// import Debts from './pages/Debts';
-// import USSDDemo from './pages/USSDDemo';
-// import Settings from './pages/Settings';
+import Dashboard from './pages/Dashboard';
+import Receive from './pages/Receive';
+import Debts from './pages/Debts';
+import Settings from './pages/Settings';
+import USSDDemo from './pages/USSDDemo';
 
 export default function App() {
+  const { isDarkMode } = useTheme();
+  
   // Global Auth State
   const [user, setUser] = useState(null);
 
-  // Check for saved session on load (simulated)
+  // Check for saved session on load (simulated persistence)
   useEffect(() => {
-    const savedSession = localStorage.getItem('kobo_user');
+    const savedSession = localStorage.getItem('kobosats_user');
     if (savedSession) {
       setUser(JSON.parse(savedSession));
     }
   }, []);
 
-  // Handle Successful Login/Signup
+  // Handle Successful Login
   const handleLogin = (userData) => {
     setUser(userData);
-    localStorage.setItem('kobo_user', JSON.stringify(userData)); // Persist session
+    localStorage.setItem('kobosats_user', JSON.stringify(userData));
   };
 
-  // Handle Logout
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('kobo_user');
+  // Route Protection Wrapper
+  const ProtectedRoute = ({ children }) => {
+    if (!user) {
+      return <Navigate to="/auth" replace />;
+    }
+    return children;
   };
 
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950' : 'bg-slate-50'}`}>
         <Routes>
-          {/* Unauthenticated Route: Force users to Auth page */}
-          {!user ? (
-            <Route path="*" element={<Auth onLogin={handleLogin} />} />
-          ) : (
-            /* Authenticated Routes: The Main App */
-            <>
-              {/* Replace these placeholder divs with your actual Lovable components once you import them */}
-              <Route path="/" element={
-                <div className="p-8 text-center text-kobo-blue font-bold text-xl">
-                  Dashboard Component goes here!
-                  <button onClick={handleLogout} className="block mx-auto mt-4 text-sm text-red-500 underline">Logout</button>
-                </div>
-              } />
-              
-              <Route path="/receive" element={<div>Receive Component</div>} />
-              <Route path="/debts" element={<div>Debts Component</div>} />
-              <Route path="/ussd" element={<div>USSD Demo Component</div>} />
-              <Route path="/settings" element={<div>Settings Component</div>} />
-              
-              {/* Catch-all: Redirect any unknown URL back to Dashboard */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
+          {/* Public Route */}
+          <Route 
+            path="/auth" 
+            element={
+              user ? <Navigate to="/" replace /> : <Auth onLogin={handleLogin} />
+            } 
+          />
+
+          {/* Protected Routes */}
+          <Route 
+            path="/" 
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/receive" 
+            element={
+              <ProtectedRoute>
+                <Receive />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/debts" 
+            element={
+              <ProtectedRoute>
+                <Debts />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/ussd" 
+            element={
+              <ProtectedRoute>
+                <USSDDemo />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Catch-all redirect */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </Router>

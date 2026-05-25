@@ -25,10 +25,9 @@ export default function Auth({ onLogin }) {
 
     setIsLoading(true);
 
-    // Mock API Call - Simulates network request delay (1.5 seconds)
+    // Mock API Call - Simulates network request delay
     setTimeout(() => {
       setIsLoading(false);
-      // Pass the user data up to App.jsx to handle global state
       onLogin({ phone: phoneNumber }); 
     }, 1500);
   };
