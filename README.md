@@ -1,16 +1,20 @@
-# React + Vite
+# KoboSats Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+KoboSats is a web-based Bitcoin USSD interface designed to facilitate financial inclusion by enabling offline-first interactions. This project acts as the frontend dashboard, allowing users to manage balances, track debts, and generate invoices with a seamless, responsive UI.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Authentication**: Secure user login and session persistence.
+- **Fintech Dashboard**: Real-time wallet balance viewing and transaction history.
+- **USSD Simulation**: Offline-focused interface for Bitcoin transactions.
+- **Theme Support**: Fully functional Dark/Light mode toggle.
+- **Multi-Language**: Support for English, Yorùbá, Hausa, and Igbo.
+- **Debt Management**: Easy logging and tracking of user debts.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Framework**: React.js
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS (v4)
+- **State Management**: React Context API
+- **Routing**: React Router
