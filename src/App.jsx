@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useTheme } from './context/ThemeContext';
 
 // Import Pages
+import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Receive from './pages/Receive';
@@ -42,7 +43,15 @@ export default function App() {
     <Router>
       <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950' : 'bg-slate-50'}`}>
         <Routes>
-          {/* Public Route */}
+          {/* Main Entry Route (Landing or Dashboard) */}
+          <Route 
+            path="/" 
+            element={
+              user ? <Dashboard /> : <Landing />
+            } 
+          />
+
+          {/* Auth Route */}
           <Route 
             path="/auth" 
             element={
@@ -51,14 +60,6 @@ export default function App() {
           />
 
           {/* Protected Routes */}
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
           <Route 
             path="/receive" 
             element={
