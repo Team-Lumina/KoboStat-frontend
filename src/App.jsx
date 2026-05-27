@@ -31,6 +31,12 @@ export default function App() {
     localStorage.setItem('kobosats_user', JSON.stringify(userData));
   };
 
+  // Handle Logout (Clears state so the router knows to kick them out)
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('kobosats_user');
+  };
+
   // Route Protection Wrapper
   const ProtectedRoute = ({ children }) => {
     if (!user) {
@@ -88,7 +94,8 @@ export default function App() {
             path="/settings" 
             element={
               <ProtectedRoute>
-                <Settings />
+                {/* Pass the logout function as a prop to Settings */}
+                <Settings onLogout={handleLogout} />
               </ProtectedRoute>
             } 
           />

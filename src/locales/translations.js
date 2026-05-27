@@ -41,7 +41,6 @@ export const translations = {
     securityDesc: "PIN & biometrics",
     signOut: "Sign out",
     signOutDesc: "Lock your wallet",
-    
     yourLedger: "YOUR LEDGER",
     debtTracker: "Debt tracker",
     totalOutstanding: "TOTAL OUTSTANDING",
@@ -61,8 +60,30 @@ export const translations = {
     notesOptional: "NOTES (OPTIONAL)",
     whatDidTheyBuy: "What did they buy?",
     cancel: "Cancel",
-    saveDebt: "Save debt"
+    saveDebt: "Save debt",
+    
+    // NEW DASHBOARD KEYS
+    changeLanguage: "Change Language",
+    accountSettings: "Account Settings",
+    hideBalance: "Hide Balance",
+    showBalance: "Show Balance",
+    thisWeek: "This week",
+    actionReceive: "Receive",
+    actionSendSats: "Send Sats",
+    actionLogDebt: "Log Debt",
+    actionViewDebts: "View Debts",
+    txReceivedJustNow: "Received • Just now",
+    txReceived2hAgo: "Received • 2h ago",
+    txDebtSettledYesterday: "Debt settled • Yesterday",
+    txReceivedYesterday: "Received • Yesterday",
+    todaysMarket: "Today's Market",
+    customersPayingFaster: "Customers are paying faster",
+    averageSettlementTime: "Your average settlement time this week is under 3 seconds. Keep it going, Amara.",
+    ussdCodeLabel: "USSD Code",
+    dialFromAnyPhone: "Dial from any phone — no internet needed.",
+    openUssdEmulator: "Open USSD emulator"
   },
+
   yo: {
     greeting: "Ẹ Káàárọ",
     walletBalance: "IYE TÍ Ó WÀ NÍNÚ ÀPÒ",
@@ -105,7 +126,6 @@ export const translations = {
     securityDesc: "PIN & ìdánìmọ̀ ẹ̀yà ara",
     signOut: "Jáde",
     signOutDesc: "Ti àpò rẹ",
-
     yourLedger: "ÌWÉ ÌṢIRÒ RẸ",
     debtTracker: "Aṣọ́ Ìgbèsè",
     totalOutstanding: "ÀPÒPỌ̀ OWÓ TÍ WỌ́N JẸ",
@@ -125,8 +145,30 @@ export const translations = {
     notesOptional: "ÀKÍYÈSÍ (KÒ PỌNDANDAN)",
     whatDidTheyBuy: "Kí ni wọ́n rà?",
     cancel: "Paarẹ",
-    saveDebt: "Fi pamọ́"
+    saveDebt: "Fi pamọ́",
+    
+    // NEW DASHBOARD KEYS
+    changeLanguage: "Yí èdè padà",
+    accountSettings: "Ètò Àkáǹtì",
+    hideBalance: "Fi iye owó pamọ́",
+    showBalance: "Ṣe afihan iye owó",
+    thisWeek: "Ọ̀sẹ̀ yìí",
+    actionReceive: "Gbà",
+    actionSendSats: "Fi Sats ránṣẹ́",
+    actionLogDebt: "Kọ Gbèsè",
+    actionViewDebts: "Wo Gbèsè",
+    txReceivedJustNow: "A ti gbà • Ní báyìí",
+    txReceived2hAgo: "A ti gbà • Wákàtí 2 sẹ́yìn",
+    txDebtSettledYesterday: "Gbèsè ti san • Lánàá",
+    txReceivedYesterday: "A ti gbà • Lánàá",
+    todaysMarket: "Ọjà Ti Òní",
+    customersPayingFaster: "Àwọn oníbàárà ń sanwó yára",
+    averageSettlementTime: "Àkókò ìsanwó rẹ ní ọ̀sẹ̀ yìí kò pé ìṣẹ́jú àáyá mẹ́ta. Máa báa lọ, Amara.",
+    ussdCodeLabel: "Kóòdù USSD",
+    dialFromAnyPhone: "Tẹ láti orí fóònù yòówù — kò nílò intanẹẹti.",
+    openUssdEmulator: "Ṣí ẹ̀rọ USSD"
   },
+
   ha: {
     greeting: "Barka da safiya",
     walletBalance: "KUDIN CIKIN ASUSU",
@@ -169,7 +211,6 @@ export const translations = {
     securityDesc: "PIN & kwayoyin halitta",
     signOut: "Fita",
     signOutDesc: "Kulle asusunka",
-
     yourLedger: "LITTAFIN KA",
     debtTracker: "Mai bin diddigin Bashi",
     totalOutstanding: "JIMULLAR BASHI",
@@ -189,8 +230,30 @@ export const translations = {
     notesOptional: "KARIN BAYANI (ZABI NE)",
     whatDidTheyBuy: "Me suka saya?",
     cancel: "Soke",
-    saveDebt: "Ajiye Bashi"
+    saveDebt: "Ajiye Bashi",
+    
+    // NEW DASHBOARD KEYS
+    changeLanguage: "Canza Harshe",
+    accountSettings: "Saitunan Asusu",
+    hideBalance: "Boye Kudi",
+    showBalance: "Nuna Kudi",
+    thisWeek: "Wannan satin",
+    actionReceive: "Karba",
+    actionSendSats: "Aika Sats",
+    actionLogDebt: "Rubuta Bashi",
+    actionViewDebts: "Duba Bashi",
+    txReceivedJustNow: "An karba • Yanzu yanzu",
+    txReceived2hAgo: "An karba • Sa'o'i 2 da suka wuce",
+    txDebtSettledYesterday: "An biya bashi • Jiya",
+    txReceivedYesterday: "An karba • Jiya",
+    todaysMarket: "Kasuwar Yau",
+    customersPayingFaster: "Abokan ciniki suna biya da sauri",
+    averageSettlementTime: "Matsakaicin lokacin biyan ku a wannan makon bai kai daƙiƙa 3 ba. Ci gaba da haka, Amara.",
+    ussdCodeLabel: "Lambar USSD",
+    dialFromAnyPhone: "Kira daga kowace waya — ba a buƙatar intanet.",
+    openUssdEmulator: "Bude na'urar USSD"
   },
+
   ig: {
     greeting: "Ụtụtụ ọma",
     walletBalance: "EGO DI NA AKPA",
@@ -233,12 +296,11 @@ export const translations = {
     securityDesc: "PIN & biometrics",
     signOut: "Wepụ aka",
     signOutDesc: "Kpochi akpa gị",
-
     yourLedger: "AKWỤKWỌ EGO GỊ",
     debtTracker: "Ihe Nleba Ụgwọ",
     totalOutstanding: "NGỤKỌTA ỤGWỌ",
     customersOweYou: "ndị ahịa ji gị ụgwọ",
-    searchCustomer: "Chọọ onye ahịa ma ọ bụ nọmba...",
+    searchCustomer: "Chọọ onye ahịa ma ma ọ bụ nọmba...",
     pending: "Na-eche",
     settled: "A kwụrụ",
     all: "Niile",
@@ -253,6 +315,27 @@ export const translations = {
     notesOptional: "IHE NDETU (Ọ BỤGHỊ IKE)",
     whatDidTheyBuy: "Gịnị ka ha zụrụ?",
     cancel: "Kagbuo",
-    saveDebt: "Chekwa ụgwọ"
+    saveDebt: "Chekwa ụgwọ",
+    
+    // NEW DASHBOARD KEYS
+    changeLanguage: "Gbanwe Asụsụ",
+    accountSettings: "Ntọala Akaụntị",
+    hideBalance: "Zoo Ego",
+    showBalance: "Gosi Ego",
+    thisWeek: "Izu a",
+    actionReceive: "Nata",
+    actionSendSats: "Zipụ Sats",
+    actionLogDebt: "Deta Ụgwọ",
+    actionViewDebts: "Hụ Ụgwọ",
+    txReceivedJustNow: "Anatara • Ugbu a",
+    txReceived2hAgo: "Anatara • Awa 2 gara aga",
+    txDebtSettledYesterday: "A kwụrụ ụgwọ • Ụnyaahụ",
+    txReceivedYesterday: "Anatara • Ụnyaahụ",
+    todaysMarket: "Ahịa Nke Taa",
+    customersPayingFaster: "Ndị ahịa na-akwụ ụgwọ ọsọ ọsọ",
+    averageSettlementTime: "Oge ịkwụ ụgwọ gị n'izu a erughị sekọnd 3. Jisie ike, Amara.",
+    ussdCodeLabel: "Koodu USSD",
+    dialFromAnyPhone: "Kpọọ site na ekwentị ọ bụla — ịchọghị ịntanetị.",
+    openUssdEmulator: "Mepee USSD emulator"
   }
 };
