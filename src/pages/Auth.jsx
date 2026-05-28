@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiUser, FiPhone, FiLock, FiArrowRight, FiShield, FiCheckCircle } from 'react-icons/fi';
+import { registerTrader, getTraderProfile } from '../services/api'; // Live API imports
 // Import the logo
 import whiteLogo from '/assets/white-bg.png';
 
@@ -44,14 +45,14 @@ export default function Auth({ onLogin }) {
 
     setIsLoading(true);
 
-    // Simulate network delay before showing OTP screen
+    // Simulate network delay for UI polish before showing OTP screen
     setTimeout(() => {
       setIsLoading(false);
       setStep(2); 
-    }, 1000);
+    }, 800);
   };
 
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     const enteredOtp = otp.join('');
     
@@ -61,16 +62,48 @@ export default function Auth({ onLogin }) {
     }
 
     setIsLoading(true);
+    setError('');
 
-    // Mock API Call - Final Authentication
-    setTimeout(() => {
+    try {
+      if (isLogin) {
+        // REAL-TIME: Check if the phone number exists in the live backend
+        const profile = await getTraderProfile(formData.phone);
+        
+        if (!profile) {
+          setError('Wallet not found. Please check your number or create a new wallet.');
+          setIsLoading(false);
+          return;
+        }
+
+        // Success! Pass live data to the parent app state
+        onLogin({ 
+          phone: formData.phone, 
+          name: profile.name || 'Trader',
+          isOnboarded: true 
+        }); 
+
+      } else {
+        // REAL-TIME: Register the new trader in the live backend
+        const newTrader = await registerTrader(formData.phone, 'en');
+        
+        if (!newTrader) {
+          setError('Failed to create wallet. This number might already be registered.');
+          setIsLoading(false);
+          return;
+        }
+
+        // Success! Pass the new local data to the parent app state
+        onLogin({ 
+          phone: formData.phone, 
+          name: formData.fullName || 'Trader',
+          isOnboarded: false 
+        });
+      }
+    } catch (err) {
+      console.error("Auth API Error:", err);
+      setError('Connection error. Please check your internet and try again.');
       setIsLoading(false);
-      onLogin({ 
-        phone: formData.phone, 
-        name: formData.fullName || 'Trader',
-        isOnboarded: !isLogin 
-      }); 
-    }, 1500);
+    }
   };
 
   const toggleAuthMode = () => {
@@ -188,7 +221,10 @@ export default function Auth({ onLogin }) {
                   </div>
                 </div>
 
+                {/* THE FIX IS HERE: Dual PIN inputs that update dynamically */}
                 <div className="grid grid-cols-1 gap-4">
+                  
+                  {/* Primary PIN Field */}
                   <div className="relative group">
                     <div className="flex items-center bg-slate-50 border-2 border-transparent focus-within:border-blue-500 rounded-2xl transition-all overflow-hidden">
                       <div className="pl-4 text-slate-400"><FiLock size={18} /></div>
@@ -205,7 +241,27 @@ export default function Auth({ onLogin }) {
                       />
                     </div>
                   </div>
-                  </div>
+
+                  {/* Confirm PIN Field (Only shows when creating a new wallet) */}
+                  {!isLogin && (
+                    <div className="relative group">
+                      <div className="flex items-center bg-slate-50 border-2 border-transparent focus-within:border-blue-500 rounded-2xl transition-all overflow-hidden">
+                        <div className="pl-4 text-slate-400"><FiLock size={18} /></div>
+                        <input 
+                          type="password" 
+                          inputMode="numeric"
+                          maxLength="4"
+                          placeholder="Confirm PIN"
+                          className="w-full h-14 bg-transparent px-4 outline-none font-bold text-slate-900 tracking-[0.3em] placeholder:tracking-normal placeholder:font-medium placeholder:opacity-50"
+                          value={formData.confirmPin}
+                          onChange={(e) => handleInputChange('confirmPin', e.target.value.replace(/[^0-9]/g, ''))}
+                          required={!isLogin}
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* New Forgot PIN Button (Only shows on Login) */}
                 {isLogin && (

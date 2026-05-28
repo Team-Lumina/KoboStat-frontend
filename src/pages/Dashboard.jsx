@@ -5,6 +5,7 @@ import { translations } from '../locales/translations';
 import Tooltip from '../components/Tooltip';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
+import { getWalletBalance, getTransactionHistory } from '../services/api'; // Live API imports
 import { 
   FiEye as Eye, 
   FiEyeOff as EyeOff, 
@@ -19,25 +20,65 @@ import {
   FiSmartphone as Smartphone
 } from 'react-icons/fi';
 
-export default function Dashboard() {
+// THE FIX: Accept the `user` prop passed from your App router
+export default function Dashboard({ user }) {
   const navigate = useNavigate();
   const { isDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
   
   const [showBalance, setShowBalance] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  
+  // Live State
+  const [walletBalance, setWalletBalance] = useState({ ngn: 0, sats: 0 });
+  const [recentTransactions, setRecentTransactions] = useState([]);
 
-  // Trigger entrance animation on mount
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-
-  const recentTransactions = [
+  // Fallback Dummy Data (Safety Net for Demo)
+  const dummyTransactions = [
     { id: 1, name: "Mama Nkechi", desc: t.txReceivedJustNow, amount: "+₦4,500", sats: "1,890 sats", isSettle: false },
     { id: 2, name: "Tunde Bakery", desc: t.txReceived2hAgo, amount: "+₦12,500", sats: "5,250 sats", isSettle: false },
     { id: 3, name: "Aisha Tailor", desc: t.txDebtSettledYesterday, amount: "+₦8,000", sats: "3,360 sats", isSettle: true },
     { id: 4, name: "Chinedu Phones", desc: t.txReceivedYesterday, amount: "+₦22,000", sats: "9,240 sats", isSettle: false },
   ];
+
+  useEffect(() => {
+    setIsLoaded(true);
+
+    const fetchDashboardData = async () => {
+      setIsLoadingData(true);
+      
+      // THE FIX: Use the logged-in user's phone, but keep the demo number as a pure backup
+      const activePhone = user?.phone || "08012345678"; 
+
+      try {
+        // 1. Fetch Live Balance
+        const balanceData = await getWalletBalance(activePhone);
+        if (balanceData) {
+          setWalletBalance({
+            ngn: balanceData.balance_ngn || 0, // Defaulting to 0 for a brand new wallet
+            sats: balanceData.balance_sats || 0
+          });
+        }
+
+        // 2. Fetch Live Transactions
+        const txData = await getTransactionHistory(activePhone);
+        if (txData && txData.length > 0) {
+          setRecentTransactions(txData.slice(0, 4)); // Only grab top 4 for the UI
+        } else {
+          setRecentTransactions(dummyTransactions); // Fallback if empty
+        }
+      } catch (error) {
+        console.error("Failed to load live data, falling back to mock UI.");
+        setWalletBalance({ ngn: 113857, sats: 47820 });
+        setRecentTransactions(dummyTransactions);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]); // Re-run if the user changes
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -69,21 +110,30 @@ export default function Dashboard() {
                 </Tooltip>
               </div>
               
-              <div className="relative z-10 mb-10">
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 tracking-tight drop-shadow-sm">
-                  ₦{showBalance ? "113,857" : "******"}
-                </h1>
-                <p className="text-sm md:text-base opacity-90 flex items-center gap-2 font-medium">
-                  <Zap size={18} fill="currentColor" className="text-yellow-300 drop-shadow-md" /> 
-                  47,820 {t.availableSats}
-                </p>
+              <div className="relative z-10 mb-10 min-h-[100px]">
+                {isLoadingData ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-14 w-48 bg-white/20 rounded-xl"></div>
+                    <div className="h-4 w-32 bg-white/10 rounded-full"></div>
+                  </div>
+                ) : (
+                  <>
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 tracking-tight drop-shadow-sm">
+                      {showBalance ? `₦${walletBalance.ngn.toLocaleString()}` : "******"}
+                    </h1>
+                    <p className="text-sm md:text-base opacity-90 flex items-center gap-2 font-medium">
+                      <Zap size={18} fill="currentColor" className="text-yellow-300 drop-shadow-md" /> 
+                      {walletBalance.sats.toLocaleString()} {t.availableSats}
+                    </p>
+                  </>
+                )}
               </div>
 
               <div className="flex justify-between items-center pt-6 border-t border-white/20 relative z-10">
                 <p className="text-sm flex items-center gap-2 font-medium opacity-90">
                   <TrendingUp size={16} /> {t.thisWeek}
                 </p>
-                <p className="text-base font-bold tracking-wide">+₦48,200</p>
+                <p className="text-base font-bold tracking-wide">+₦0</p>
               </div>
             </div>
 
@@ -123,27 +173,42 @@ export default function Dashboard() {
               </div>
               
               <div className={`rounded-[2rem] p-3 space-y-2 transition-all duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border border-blue-900/30' : 'bg-white shadow-sm border border-blue-100'}`}>
-                {recentTransactions.map((tx) => (
-                  <button key={tx.id} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-500 ease-out hover:scale-[1.01] ${isDarkMode ? 'hover:bg-blue-900/10' : 'hover:bg-blue-50/50 hover:shadow-sm'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                        {tx.isSettle ? (
-                          <CheckCircle size={20} className="text-green-500" />
-                        ) : (
-                          <ArrowDownLeft size={20} className="text-blue-600" />
-                        )}
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-sm md:text-base">{tx.name}</p>
-                        <p className="text-xs opacity-50 font-medium mt-0.5">{tx.desc}</p>
+                {isLoadingData ? (
+                  // Elegant Loading Skeleton for transactions
+                  [1, 2, 3].map((skeleton) => (
+                    <div key={skeleton} className={`w-full flex items-center justify-between p-4 rounded-2xl animate-pulse ${isDarkMode ? 'bg-blue-900/10' : 'bg-blue-50/50'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-slate-400/20"></div>
+                        <div className="space-y-2">
+                          <div className="h-4 w-24 bg-slate-400/20 rounded"></div>
+                          <div className="h-3 w-16 bg-slate-400/20 rounded"></div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-sm md:text-base text-green-500">{tx.amount}</p>
-                      <p className="text-xs opacity-50 font-medium mt-0.5">{tx.sats}</p>
-                    </div>
-                  </button>
-                ))}
+                  ))
+                ) : (
+                  recentTransactions.map((tx) => (
+                    <button key={tx.id} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-500 ease-out hover:scale-[1.01] ${isDarkMode ? 'hover:bg-blue-900/10' : 'hover:bg-blue-50/50 hover:shadow-sm'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+                          {tx.isSettle ? (
+                            <CheckCircle size={20} className="text-green-500" />
+                          ) : (
+                            <ArrowDownLeft size={20} className="text-blue-600" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-sm md:text-base">{tx.name}</p>
+                          <p className="text-xs opacity-50 font-medium mt-0.5">{tx.desc}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-sm md:text-base text-green-500">{tx.amount || `+₦${tx.amount_ngn}`}</p>
+                        <p className="text-xs opacity-50 font-medium mt-0.5">{tx.sats}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>

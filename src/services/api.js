@@ -1,13 +1,57 @@
 // Grab the URL from the .env file we just created
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-/**
- * 1. Get Wallet Balance
- * Expected to return something like { balance_sats: 47820 }
- */
-export const getWalletBalance = async () => {
+// --------------------------------------------------------
+// 1. HEALTHCHECK
+// --------------------------------------------------------
+export const checkApiHealth = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/wallet/balance`, {
+    const response = await fetch(`${BASE_URL}/api/health`, { method: 'GET' });
+    return response.ok;
+  } catch (error) {
+    console.error("Health check failed:", error);
+    return false;
+  }
+};
+
+// --------------------------------------------------------
+// 2. TRADERS MANAGEMENT (Auth)
+// --------------------------------------------------------
+export const registerTrader = async (phoneNumber, language = 'en') => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/traders/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: phoneNumber, language })
+    });
+    if (!response.ok) throw new Error('Registration failed');
+    return await response.json();
+  } catch (error) {
+    console.error("Error registering trader:", error);
+    return null;
+  }
+};
+
+export const getTraderProfile = async (phone) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/traders/${phone}`, { 
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Failed to fetch profile');
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    return null;
+  }
+};
+
+// --------------------------------------------------------
+// 3. LIGHTNING WALLET & TRANSACTIONS
+// --------------------------------------------------------
+export const getWalletBalance = async (phone) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/lightning/balance/${phone}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -15,20 +59,33 @@ export const getWalletBalance = async () => {
     return await response.json();
   } catch (error) {
     console.error("Error fetching balance:", error);
-    return null; // Return null so your UI can show a fallback or error state
+    return null; 
   }
 };
 
-/**
- * 2. Generate Invoice
- * Expected to return something like { invoice: "lnbc50n1..." }
- */
-export const generateInvoice = async (amount, memo) => {
+export const getTransactionHistory = async (phone) => {
   try {
-    const response = await fetch(`${BASE_URL}/wallet/invoice`, {
+    const response = await fetch(`${BASE_URL}/api/v1/transactions/${phone}`, { 
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Failed to fetch transaction history');
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching transaction history:", error);
+    return []; 
+  }
+};
+
+export const generateInvoice = async (phoneNumber, amountNgn) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/lightning/invoice`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount_sats: amount, description: memo })
+      body: JSON.stringify({ 
+        phone_number: phoneNumber, 
+        amount_ngn: Number(amountNgn) 
+      })
     });
     if (!response.ok) throw new Error('Failed to generate invoice');
     return await response.json();
@@ -38,46 +95,72 @@ export const generateInvoice = async (amount, memo) => {
   }
 };
 
-/**
- * 3. Pay Invoice
- * Expected to return something like { status: "success", fee_paid: 2 }
- */
-export const payInvoice = async (bolt11String) => {
+// --------------------------------------------------------
+// 4. DEBT TRACKER LEDGER
+// --------------------------------------------------------
+export const createDebtRecord = async (creditorPhone, debtorPhone, amountNgn, description, dueDate) => {
   try {
-    const response = await fetch(`${BASE_URL}/wallet/pay`, {
+    const response = await fetch(`${BASE_URL}/api/v1/debts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoice: bolt11String })
+      body: JSON.stringify({
+        creditor_phone: creditorPhone,
+        debtor_phone: debtorPhone,
+        amount_ngn: Number(amountNgn),
+        description: description,
+        due_date: dueDate || null
+      })
     });
-    if (!response.ok) throw new Error('Payment failed');
+    if (!response.ok) throw new Error('Failed to create debt record');
     return await response.json();
   } catch (error) {
-    console.error("Error paying invoice:", error);
+    console.error("Error logging debt:", error);
     return null;
   }
 };
 
-/**
- * 4. USSD Gateway Handler
- * Sends the session data to the backend USSD processor
- */
-export const sendUssdCommand = async (sessionId, phoneNumber, textInput) => {
+export const listDebts = async (phone) => {
   try {
-    const response = await fetch(`${BASE_URL}/ussd`, {
+    const response = await fetch(`${BASE_URL}/api/v1/debts/${phone}`, { method: 'GET' });
+    if (!response.ok) throw new Error('Failed to load ledger');
+    return await response.json();
+  } catch (error) {
+    console.error("Error listing debts:", error);
+    return [];
+  }
+};
+
+export const settleDebt = async (debtId, phone) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/debts/${debtId}/settle?phone=${phone}`, {
+      method: 'PATCH'
+    });
+    if (!response.ok) throw new Error('Failed to settle debt record');
+    return await response.json();
+  } catch (error) {
+    console.error("Error settling debt:", error);
+    return null;
+  }
+};
+
+// --------------------------------------------------------
+// 5. USSD SIMULATOR ENGINE
+// --------------------------------------------------------
+export const sendUssdCommand = async (phoneNumber, textInput) => {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1/ussd/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        sessionId: sessionId, 
-        phoneNumber: phoneNumber, 
+        phone_number: phoneNumber, 
         text: textInput 
       })
     });
     
-    // USSD usually returns plain text (e.g., "CON Welcome to KoboSats...")
-    if (!response.ok) throw new Error('USSD request failed');
-    return await response.text(); 
+    if (!response.ok) throw new Error('USSD simulation request failed');
+    return await response.json(); 
   } catch (error) {
-    console.error("Error with USSD:", error);
+    console.error("Error with USSD Simulation:", error);
     return "END Connection Error. Please try again.";
   }
 };

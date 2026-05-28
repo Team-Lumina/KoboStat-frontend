@@ -20,7 +20,8 @@ import {
   FiBell as Bell
 } from 'react-icons/fi';
 
-export default function Settings({ onLogout }) {
+// 1. Inject the user prop here!
+export default function Settings({ user, onLogout }) {
   const navigate = useNavigate();
   const { isDarkMode, setIsDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
@@ -80,18 +81,22 @@ export default function Settings({ onLogout }) {
           {/* LEFT COLUMN: Identity & Core Actions */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* Premium Profile Card */}
+            {/* Premium Profile Card - NOW DYNAMIC */}
             <div className="w-full bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-[2rem] p-8 shadow-2xl shadow-blue-600/20 flex flex-col md:flex-row md:items-center gap-6 relative overflow-hidden group transition-all duration-500 hover:-translate-y-1">
               <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:opacity-10 transition-opacity duration-1000 ease-out"></div>
               
-              <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center font-bold text-3xl backdrop-blur-sm border border-white/20 shadow-inner z-10 shrink-0">
-                AO
+              {/* 2. Dynamically pull initials based on the user's name */}
+              <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center font-bold text-3xl backdrop-blur-sm border border-white/20 shadow-inner z-10 shrink-0 uppercase">
+                {user?.name ? user.name.substring(0, 2) : 'KS'}
               </div>
               <div className="z-10">
-                <h3 className="font-bold text-2xl leading-tight mb-1">Amara Okonkwo</h3>
-                <p className="text-sm opacity-90 mb-3 font-medium">Mama Amara Provisions</p>
+                {/* 3. Display real name and phone number */}
+                <h3 className="font-bold text-2xl leading-tight mb-1">{user?.name || 'KoboSats User'}</h3>
+                <p className="text-sm opacity-90 mb-3 font-medium tracking-wide">{user?.phone || 'Secure Wallet'}</p>
+                
+                {/* 4. Updated global wording */}
                 <div className="inline-flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold border border-white/10 backdrop-blur-md shadow-sm">
-                  <ShieldCheck size={14} className="text-blue-200" /> {t.verifiedTrader}
+                  <ShieldCheck size={14} className="text-blue-200" /> Verified Account
                 </div>
               </div>
             </div>
@@ -147,7 +152,51 @@ export default function Settings({ onLogout }) {
             
             {/* Wallet Recovery Section */}
             <section className={`p-6 rounded-[2rem] border transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
-              {/* ... (Keep your Recovery section code as is) ... */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">{t.recoverySection}</p>
+                  <h3 className="font-bold text-xl">{t.seedPhrase}</h3>
+                  <p className="text-sm opacity-70 mt-1 font-medium max-w-md">{t.seedPhraseDesc}</p>
+                </div>
+                <div className={`p-3 rounded-full ${isDarkMode ? 'bg-orange-900/20 text-orange-400' : 'bg-orange-50 text-orange-500'}`}>
+                  <AlertTriangle size={24} />
+                </div>
+              </div>
+
+              {!showRecovery ? (
+                <button 
+                  onClick={() => setShowRecovery(true)}
+                  className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 border ${isDarkMode ? 'border-blue-900/50 bg-blue-900/20 hover:bg-blue-900/40 text-blue-400' : 'border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-600 shadow-sm'}`}
+                >
+                  <Eye size={18} /> {t.revealSeed}
+                </button>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
+                    {seedPhrase.map((word, i) => (
+                      <div key={i} className={`flex items-center gap-2 p-2 sm:p-3 rounded-lg border ${isDarkMode ? 'bg-black border-zinc-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                        <span className="text-[10px] font-bold opacity-40 w-4">{i + 1}.</span>
+                        <span className="text-sm font-bold">{word}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handleCopyRecovery}
+                      className={`flex-1 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${isDarkMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20'}`}
+                    >
+                      {recoveryCopied ? <ShieldCheck size={18} /> : <Copy size={18} />}
+                      {recoveryCopied ? "Copied Securely" : t.copySeed}
+                    </button>
+                    <button 
+                      onClick={() => setShowRecovery(false)}
+                      className={`px-6 py-3.5 rounded-xl font-bold transition-colors duration-300 border ${isDarkMode ? 'border-zinc-700 hover:bg-zinc-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-600'}`}
+                    >
+                      Hide
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Appearance Section */}
@@ -211,7 +260,7 @@ export default function Settings({ onLogout }) {
         </div>
 
         <div className="text-center py-10 mt-4">
-          <p className="text-xs font-bold opacity-30 uppercase tracking-widest">KoboSats v1.0 • Built with ⚡ for African traders</p>
+          <p className="text-xs font-bold opacity-30 uppercase tracking-widest">KoboSats v1.0 • Built with ⚡ for financial freedom</p>
         </div>
       </div>
 

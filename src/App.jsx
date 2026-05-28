@@ -48,12 +48,12 @@ export default function App() {
   return (
     <Router>
       <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-zinc-950' : 'bg-slate-50'}`}>
-        <Routes>
+<Routes>
           {/* Main Entry Route (Landing or Dashboard) */}
           <Route 
             path="/" 
             element={
-              user ? <Dashboard /> : <Landing />
+              user ? <Dashboard user={user} /> : <Landing />
             } 
           />
 
@@ -70,7 +70,7 @@ export default function App() {
             path="/receive" 
             element={
               <ProtectedRoute>
-                <Receive />
+                <Receive user={user} />
               </ProtectedRoute>
             } 
           />
@@ -78,7 +78,7 @@ export default function App() {
             path="/debts" 
             element={
               <ProtectedRoute>
-                <Debts />
+                <Debts user={user} />
               </ProtectedRoute>
             } 
           />
@@ -86,7 +86,7 @@ export default function App() {
             path="/ussd" 
             element={
               <ProtectedRoute>
-                <USSDDemo />
+                <USSDDemo user={user} />
               </ProtectedRoute>
             } 
           />
@@ -94,8 +94,8 @@ export default function App() {
             path="/settings" 
             element={
               <ProtectedRoute>
-                {/* Pass the logout function as a prop to Settings */}
-                <Settings onLogout={handleLogout} />
+                {/* Pass the logout function AND user as props to Settings */}
+                <Settings user={user} onLogout={handleLogout} />
               </ProtectedRoute>
             } 
           />
