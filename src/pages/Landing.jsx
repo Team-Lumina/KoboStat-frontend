@@ -46,7 +46,7 @@ export default function Landing() {
             className="w-10 h-10 rounded-full shadow-lg shadow-blue-600/10 object-cover" 
           />
 <span className="font-extrabold text-2xl tracking-tighter">
-  Kobo<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Sats</span>
+  Kobo<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Sat</span>
 </span>
         </div>
         <div className="flex items-center gap-6">
@@ -97,7 +97,7 @@ export default function Landing() {
             variants={meltUpVariant}
             className={`text-lg md:text-xl font-medium leading-relaxed max-w-lg ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}
           >
-            KoboSats helps traders receive Lightning payments, track debts, and access borderless money — using Bitcoin and USSD. No BVN. No bank delays.
+            KoboSat helps traders receive Lightning payments, track debts, and access borderless money — using Bitcoin and USSD. No BVN. No bank delays.
           </motion.p>
           
           <motion.div 
@@ -257,7 +257,7 @@ export default function Landing() {
               Start receiving Lightning payments today.
             </h2>
             <p className="text-base md:text-lg font-medium opacity-90 leading-relaxed mb-8">
-              Open a free trader wallet in 30 seconds. Get a personal Lightning address like <span className="font-bold underline decoration-blue-400 underline-offset-4">amara@kobosats.app</span>.
+              Open a free trader wallet in 30 seconds. Get a personal Lightning address like <span className="font-bold underline decoration-blue-400 underline-offset-4">amara@kobosat.app</span>.
             </p>
             <button 
               onClick={() => navigate('/auth')}
@@ -278,7 +278,7 @@ export default function Landing() {
             alt="KS" 
             className="w-6 h-6 rounded-full object-cover grayscale opacity-70"
           />
-          <span className="text-sm font-semibold">© 2026 KoboSats</span>
+          <span className="text-sm font-semibold">© 2026 KoboSat</span>
         </div>
         
         <div className="flex items-center gap-6 text-sm font-semibold">

@@ -39,7 +39,7 @@ export default function GlobalHeader() {
             className="w-10 h-10 md:w-12 md:h-12 rounded-full shadow-lg shadow-blue-600/20 group-hover:shadow-blue-600/40 group-hover:-translate-y-0.5 transition-all duration-500 object-cover" 
           />
           <span className={`font-extrabold text-xl md:text-2xl tracking-tighter hidden lg:block transition-colors duration-500 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-            Kobo<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Sats</span>
+            Kobo<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Sat</span>
           </span>
         </div>
         

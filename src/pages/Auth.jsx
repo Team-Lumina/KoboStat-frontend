@@ -97,7 +97,7 @@ export default function Auth({ onLogin }) {
             className="w-12 h-12 rounded-full shadow-lg object-cover" 
           />
           <span className="font-extrabold text-3xl tracking-tight">
-            Kobo<span className="text-blue-300">Sats</span>
+            Kobo<span className="text-blue-300">Sat</span>
           </span>
         </div>
         
@@ -113,7 +113,7 @@ export default function Auth({ onLogin }) {
         </div>
         
         <div className="relative z-10 flex items-center gap-6 text-blue-200 text-sm font-medium">
-          <span>© 2026 KoboSats</span>
+          <span>© 2026 KoboSat</span>
           <span className="w-1 h-1 rounded-full bg-blue-300"></span>
           <button className="hover:text-white transition-colors">Privacy & Security</button>
         </div>
