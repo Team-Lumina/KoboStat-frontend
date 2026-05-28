@@ -11,7 +11,8 @@ import {
 import whiteLogo from '/assets/white-bg.png';
 import blackLogo from '/assets/black-bg.png';
 
-export default function GlobalHeader() {
+// THE FIX: Accept the `user` prop
+export default function GlobalHeader({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, language, setLanguage } = useTheme();
@@ -47,7 +48,11 @@ export default function GlobalHeader() {
         
         <div className="hidden md:block">
           <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${isDarkMode ? 'text-blue-400/50' : 'text-blue-600/50'}`}>{t.greeting || "Good Morning"}</p>
-          <h2 className={`font-bold text-sm leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Amara Okonkwo</h2>
+          
+          {/* THE FIX: Dynamic user name injection */}
+          <h2 className={`font-bold text-sm leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+            {user?.name || 'Verified Member'}
+          </h2>
         </div>
       </div>
       

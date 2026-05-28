@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
+import { sendUssdCommand } from '../services/api'; // Live API import
 import { 
   FiArrowLeft as ArrowLeft,
   FiDelete as Delete, 
@@ -13,7 +14,8 @@ import {
   FiZap as Zap
 } from 'react-icons/fi';
 
-export default function USSDDemo() {
+// THE FIX: Accept the `user` prop
+export default function USSDDemo({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, language } = useTheme();
@@ -24,7 +26,12 @@ export default function USSDDemo() {
   // Advanced Emulator State
   const [ussdInput, setUssdInput] = useState('');
   const [sessionState, setSessionState] = useState('dialer'); // 'dialer', 'loading', 'menu'
-  const [menuStep, setMenuStep] = useState(0);
+  
+  // Live API States
+  const [ussdResponse, setUssdResponse] = useState('');
+  const [isSessionEnded, setIsSessionEnded] = useState(false);
+  
+  const activePhone = user?.phone || "08012345678";
 
   useEffect(() => {
     setIsLoaded(true);
@@ -35,48 +42,68 @@ export default function USSDDemo() {
   const handleClear = () => setUssdInput('');
   const handleDelete = () => setUssdInput(prev => prev.slice(0, -1));
 
-  const handleDial = () => {
+  // Process the raw string from the backend
+  const processUssdResponse = (rawResponse) => {
+    // Ensure we are working with a string
+    const text = typeof rawResponse === 'string' ? rawResponse : (rawResponse.message || JSON.stringify(rawResponse));
+    
+    setSessionState('menu');
+    setUssdInput('');
+
+    if (text.startsWith('END')) {
+      setIsSessionEnded(true);
+      // Strip "END " for a cleaner UI
+      setUssdResponse(text.replace(/^END\s*/, ''));
+    } else if (text.startsWith('CON')) {
+      setIsSessionEnded(false);
+      // Strip "CON " for a cleaner UI
+      setUssdResponse(text.replace(/^CON\s*/, ''));
+    } else {
+      // Fallback if the backend forgets the prefix
+      setIsSessionEnded(false);
+      setUssdResponse(text);
+    }
+  };
+
+  const handleDial = async () => {
     if (!ussdInput) return;
     setSessionState('loading');
     
-    setTimeout(() => {
-      if (ussdInput === '*384*7287#' || ussdInput === '*737#') {
-        setSessionState('menu');
-        setMenuStep(1); // Main Menu
-        setUssdInput('');
-      } else {
-        setSessionState('menu');
-        setMenuStep(-1); // Error state
-        setUssdInput('');
-      }
-    }, 1200);
+    try {
+      // Send the initial shortcode (e.g. *384*7287#)
+      const res = await sendUssdCommand(activePhone, ussdInput);
+      processUssdResponse(res);
+    } catch (error) {
+      processUssdResponse("END Connection Error. Please try again.");
+    }
   };
 
   // Interactive USSD Menu Logic for live demos
-  const handleMenuSubmit = () => {
-    if (menuStep === 1) {
-      if (ussdInput === '1') setMenuStep(2); // Check Balance
-      else if (ussdInput === '2') setMenuStep(3); // Receive
-      else setMenuStep(0); // Exit
-    } else {
-      // Return to main menu on any other screen
-      setMenuStep(1);
+  const handleMenuSubmit = async () => {
+    setSessionState('loading');
+    
+    try {
+      // Send the user's menu selection (e.g. "1")
+      const res = await sendUssdCommand(activePhone, ussdInput);
+      processUssdResponse(res);
+    } catch (error) {
+      processUssdResponse("END Connection Error. Please check your network.");
     }
-    setUssdInput('');
   };
 
   const cancelSession = () => {
     setSessionState('dialer');
-    setMenuStep(0);
+    setUssdResponse('');
     setUssdInput('');
+    setIsSessionEnded(false);
   };
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
-        {/* REUSABLE GLOBAL HEADER */}
-        <GlobalHeader />
+        {/* REUSABLE GLOBAL HEADER WITH USER PROP */}
+        <GlobalHeader user={user} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center min-h-[75vh]">
           
@@ -110,7 +137,7 @@ export default function USSDDemo() {
           {/* RIGHT COLUMN: The Emulator */}
           <div className="lg:col-span-6 flex justify-center">
             
-            {/* CSS Phone Frame (Visible on Desktop, invisible on Mobile) */}
+            {/* CSS Phone Frame */}
             <div className={`w-full max-w-sm md:max-w-md mx-auto transition-all duration-700 ease-out ${
               'md:border-[12px] md:rounded-[3rem] md:shadow-2xl md:overflow-hidden relative ' + 
               (isDarkMode ? 'md:border-zinc-900 md:bg-black md:shadow-blue-900/20' : 'md:border-slate-800 md:bg-white md:shadow-slate-400/50')
@@ -119,7 +146,7 @@ export default function USSDDemo() {
               {/* Fake Phone Notch */}
               <div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-50"></div>
 
-              {/* Mobile Page Title & Back Button (Hidden on Desktop inside the frame) */}
+              {/* Mobile Page Title & Back Button */}
               <div className="flex items-center gap-4 mb-6 md:hidden px-2 pt-2">
                 <button onClick={() => navigate(-1)} className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400' : 'bg-white border-blue-100 text-blue-600'}`}>
                   <ArrowLeft size={20} />
@@ -139,31 +166,39 @@ export default function USSDDemo() {
                     {sessionState === 'loading' ? (
                       <div className="text-center space-y-4 animate-pulse">
                         <Smartphone size={32} className="mx-auto text-blue-400" />
-                        <p className="font-mono text-sm tracking-widest uppercase">Executing USSD...</p>
+                        <p className="font-mono text-sm tracking-widest uppercase text-white">Executing USSD...</p>
                       </div>
                     ) : (
                       <div className="w-full text-left font-mono space-y-4">
+                        
+                        {/* Display the live response from the backend */}
                         <div className="text-sm leading-relaxed whitespace-pre-line tracking-tight text-green-400">
-                          {menuStep === 1 && "Welcome to KoboSats\n\n1. Check Balance\n2. Receive Sats\n3. View Pending Debts\n\n0. Exit"}
-                          {menuStep === 2 && "Wallet Balance:\n\n₦113,857\n(47,820 sats)\n\n0. Back"}
-                          {menuStep === 3 && "Receive Sats:\n\nInvoice generated successfully.\nSMS sent to customer.\n\n0. Back"}
-                          {menuStep === -1 && "Unknown application.\nConnection failed.\n\n0. Back"}
+                          {ussdResponse}
                         </div>
                         
-                        <div className="flex items-center gap-2 border-b-2 border-green-500/50 pb-1 mt-6">
-                          <span className="text-green-500">{'>'}</span>
-                          <input 
-                            type="text" 
-                            value={ussdInput}
-                            readOnly
-                            className="bg-transparent border-none outline-none text-white font-bold w-full"
-                          />
-                        </div>
-                        
-                        <div className="flex gap-3 pt-4">
-                          <button onClick={cancelSession} className="flex-1 py-2 rounded-lg text-xs font-bold border border-slate-600 hover:bg-slate-700 transition-colors">CANCEL</button>
-                          <button onClick={handleMenuSubmit} className="flex-1 py-2 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-700 transition-colors">SEND</button>
-                        </div>
+                        {/* Conditionally show input and buttons based on END vs CON */}
+                        {!isSessionEnded ? (
+                          <>
+                            <div className="flex items-center gap-2 border-b-2 border-green-500/50 pb-1 mt-6">
+                              <span className="text-green-500">{'>'}</span>
+                              <input 
+                                type="text" 
+                                value={ussdInput}
+                                readOnly
+                                className="bg-transparent border-none outline-none text-white font-bold w-full"
+                              />
+                            </div>
+                            
+                            <div className="flex gap-3 pt-4">
+                              <button onClick={cancelSession} className="flex-1 py-2 rounded-lg text-xs font-bold border border-slate-600 hover:bg-slate-700 transition-colors text-white">CANCEL</button>
+                              <button onClick={handleMenuSubmit} className="flex-1 py-2 rounded-lg text-xs font-bold bg-green-600 hover:bg-green-700 transition-colors text-white">SEND</button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex gap-3 pt-4 mt-6">
+                            <button onClick={cancelSession} className="flex-1 py-2 rounded-lg text-xs font-bold border border-slate-600 hover:bg-slate-700 transition-colors text-white">OK</button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

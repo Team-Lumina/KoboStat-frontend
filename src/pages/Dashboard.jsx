@@ -5,7 +5,7 @@ import { translations } from '../locales/translations';
 import Tooltip from '../components/Tooltip';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
-import { getWalletBalance, getTransactionHistory } from '../services/api'; // Live API imports
+import { getWalletBalance, getTransactionHistory } from '../services/api'; 
 import { 
   FiEye as Eye, 
   FiEyeOff as EyeOff, 
@@ -17,10 +17,10 @@ import {
   FiArrowDownLeft as ArrowDownLeft,
   FiTrendingUp as TrendingUp,
   FiCheckCircle as CheckCircle,
-  FiSmartphone as Smartphone
+  FiSmartphone as Smartphone,
+  FiRefreshCw as RefreshCw
 } from 'react-icons/fi';
 
-// THE FIX: Accept the `user` prop passed from your App router
 export default function Dashboard({ user }) {
   const navigate = useNavigate();
   const { isDarkMode, language } = useTheme();
@@ -29,73 +29,79 @@ export default function Dashboard({ user }) {
   const [showBalance, setShowBalance] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Live State
   const [walletBalance, setWalletBalance] = useState({ ngn: 0, sats: 0 });
   const [recentTransactions, setRecentTransactions] = useState([]);
 
-  // Fallback Dummy Data (Safety Net for Demo)
-  const dummyTransactions = [
-    { id: 1, name: "Mama Nkechi", desc: t.txReceivedJustNow, amount: "+₦4,500", sats: "1,890 sats", isSettle: false },
-    { id: 2, name: "Tunde Bakery", desc: t.txReceived2hAgo, amount: "+₦12,500", sats: "5,250 sats", isSettle: false },
-    { id: 3, name: "Aisha Tailor", desc: t.txDebtSettledYesterday, amount: "+₦8,000", sats: "3,360 sats", isSettle: true },
-    { id: 4, name: "Chinedu Phones", desc: t.txReceivedYesterday, amount: "+₦22,000", sats: "9,240 sats", isSettle: false },
-  ];
+  const activePhone = user?.phone || "08012345678";
+
+  const fetchDashboardData = async (silentRefresh = false) => {
+    if (!silentRefresh) setIsLoadingData(true);
+    else setIsRefreshing(true);
+
+    try {
+      const balanceData = await getWalletBalance(activePhone);
+      if (balanceData) {
+        setWalletBalance({
+          ngn: balanceData.balance_ngn || 0,
+          sats: balanceData.balance_sats || 0
+        });
+      }
+
+      const txData = await getTransactionHistory(activePhone);
+      
+      if (Array.isArray(txData) && txData.length > 0) {
+        const mappedTxs = txData.slice(0, 4).map(tx => ({
+          id: tx.id || Math.random().toString(),
+          name: tx.counterparty || tx.type === 'receive' ? 'Payment Received' : 'Payment Sent',
+          desc: tx.description || (tx.type === 'receive' ? 'Lightning Deposit' : 'Lightning Payment'),
+          amount: `${tx.type === 'send' ? '-' : '+'}₦${(tx.amount_ngn || 0).toLocaleString()}`,
+          sats: `${(tx.amount_sats || 0).toLocaleString()} sats`,
+          isSettle: tx.is_settled !== undefined ? tx.is_settled : true,
+          type: tx.type || 'receive'
+        }));
+        setRecentTransactions(mappedTxs);
+      } else {
+        // Zero state for authentic live demo
+        setRecentTransactions([]);
+      }
+    } catch (error) {
+      console.error("Failed to load live data:", error);
+      if (!silentRefresh) {
+        setWalletBalance({ ngn: 0, sats: 0 });
+        setRecentTransactions([]);
+      }
+    } finally {
+      setIsLoadingData(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     setIsLoaded(true);
-
-    const fetchDashboardData = async () => {
-      setIsLoadingData(true);
-      
-      // THE FIX: Use the logged-in user's phone, but keep the demo number as a pure backup
-      const activePhone = user?.phone || "08012345678"; 
-
-      try {
-        // 1. Fetch Live Balance
-        const balanceData = await getWalletBalance(activePhone);
-        if (balanceData) {
-          setWalletBalance({
-            ngn: balanceData.balance_ngn || 0, // Defaulting to 0 for a brand new wallet
-            sats: balanceData.balance_sats || 0
-          });
-        }
-
-        // 2. Fetch Live Transactions
-        const txData = await getTransactionHistory(activePhone);
-        if (txData && txData.length > 0) {
-          setRecentTransactions(txData.slice(0, 4)); // Only grab top 4 for the UI
-        } else {
-          setRecentTransactions(dummyTransactions); // Fallback if empty
-        }
-      } catch (error) {
-        console.error("Failed to load live data, falling back to mock UI.");
-        setWalletBalance({ ngn: 113857, sats: 47820 });
-        setRecentTransactions(dummyTransactions);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
     fetchDashboardData();
-  }, [user]); // Re-run if the user changes
+
+    // Auto-poll every 10 seconds for real-time demo magic
+    const intervalId = setInterval(() => {
+      fetchDashboardData(true);
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* Maximum Width Wrapper for Desktop */}
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
-        {/* REUSABLE GLOBAL HEADER */}
-        <GlobalHeader />
+        <GlobalHeader user={user} />
 
-        {/* CSS Grid for Desktop Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           
-          {/* LEFT COLUMN (Spans 8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6 lg:space-y-8">
             
-            {/* Wallet Balance Card */}
             <div className="p-8 md:p-10 rounded-[2rem] bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:opacity-10 transition-opacity duration-1000 ease-out"></div>
               
@@ -103,15 +109,25 @@ export default function Dashboard({ user }) {
                 <p className="text-[10px] font-bold tracking-widest opacity-90 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm uppercase shadow-sm border border-white/5">
                   {t.walletBalance}
                 </p>
-                <Tooltip text={showBalance ? t.hideBalance : t.showBalance}>
-                  <button onClick={() => setShowBalance(!showBalance)} className="p-2 rounded-full hover:bg-white/20 transition-colors duration-500">
-                    {showBalance ? <Eye size={20} /> : <EyeOff size={20} />}
-                  </button>
-                </Tooltip>
+                <div className="flex gap-2">
+                  <Tooltip text="Refresh Balance">
+                    <button 
+                      onClick={() => fetchDashboardData(true)} 
+                      className={`p-2 rounded-full hover:bg-white/20 transition-all duration-500 ${isRefreshing ? 'animate-spin' : ''}`}
+                    >
+                      <RefreshCw size={18} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip text={showBalance ? t.hideBalance : t.showBalance}>
+                    <button onClick={() => setShowBalance(!showBalance)} className="p-2 rounded-full hover:bg-white/20 transition-colors duration-500">
+                      {showBalance ? <Eye size={20} /> : <EyeOff size={20} />}
+                    </button>
+                  </Tooltip>
+                </div>
               </div>
               
               <div className="relative z-10 mb-10 min-h-[100px]">
-                {isLoadingData ? (
+                {isLoadingData && !isRefreshing ? (
                   <div className="animate-pulse space-y-4">
                     <div className="h-14 w-48 bg-white/20 rounded-xl"></div>
                     <div className="h-4 w-32 bg-white/10 rounded-full"></div>
@@ -137,7 +153,6 @@ export default function Dashboard({ user }) {
               </div>
             </div>
 
-            {/* Quick Actions (4-Grid matching the image) */}
             <div className="grid grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
               {[
                 { name: t.actionReceive, icon: <ArrowDown size={24} />, path: '/receive' },
@@ -165,58 +180,82 @@ export default function Dashboard({ user }) {
               ))}
             </div>
 
-            {/* Recent Activity List */}
             <div className="pt-2">
               <div className="flex justify-between items-end mb-6">
                 <h3 className="font-bold text-xl">{t.recentActivity}</h3>
-                <button className="text-blue-600 text-sm font-bold hover:underline transition-all">{t.seeAll}</button>
+                <button 
+                  onClick={() => fetchDashboardData(true)} 
+                  className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline transition-all"
+                >
+                  <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
               </div>
               
-              <div className={`rounded-[2rem] p-3 space-y-2 transition-all duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border border-blue-900/30' : 'bg-white shadow-sm border border-blue-100'}`}>
-                {isLoadingData ? (
-                  // Elegant Loading Skeleton for transactions
-                  [1, 2, 3].map((skeleton) => (
-                    <div key={skeleton} className={`w-full flex items-center justify-between p-4 rounded-2xl animate-pulse ${isDarkMode ? 'bg-blue-900/10' : 'bg-blue-50/50'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-slate-400/20"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 w-24 bg-slate-400/20 rounded"></div>
-                          <div className="h-3 w-16 bg-slate-400/20 rounded"></div>
+              <div className={`rounded-[2rem] p-3 transition-all duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border border-blue-900/30' : 'bg-white shadow-sm border border-blue-100'}`}>
+                {isLoadingData && !isRefreshing ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((skeleton) => (
+                      <div key={skeleton} className={`w-full flex items-center justify-between p-4 rounded-2xl animate-pulse ${isDarkMode ? 'bg-blue-900/10' : 'bg-blue-50/50'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-slate-400/20"></div>
+                          <div className="space-y-2">
+                            <div className="h-4 w-24 bg-slate-400/20 rounded"></div>
+                            <div className="h-3 w-16 bg-slate-400/20 rounded"></div>
+                          </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                ) : recentTransactions.length === 0 ? (
+                  <div className={`flex flex-col items-center justify-center py-12 px-4 rounded-2xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-zinc-800 bg-black/50' : 'border-blue-100 bg-slate-50'}`}>
+                    <div className={`w-16 h-16 mb-4 rounded-full flex items-center justify-center shadow-inner ${isDarkMode ? 'bg-blue-900/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
+                      <Zap size={28} fill="currentColor" className="opacity-50" />
                     </div>
-                  ))
-                ) : (
-                  recentTransactions.map((tx) => (
-                    <button key={tx.id} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-500 ease-out hover:scale-[1.01] ${isDarkMode ? 'hover:bg-blue-900/10' : 'hover:bg-blue-50/50 hover:shadow-sm'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                          {tx.isSettle ? (
-                            <CheckCircle size={20} className="text-green-500" />
-                          ) : (
-                            <ArrowDownLeft size={20} className="text-blue-600" />
-                          )}
-                        </div>
-                        <div className="text-left">
-                          <p className="font-bold text-sm md:text-base">{tx.name}</p>
-                          <p className="text-xs opacity-50 font-medium mt-0.5">{tx.desc}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm md:text-base text-green-500">{tx.amount || `+₦${tx.amount_ngn}`}</p>
-                        <p className="text-xs opacity-50 font-medium mt-0.5">{tx.sats}</p>
-                      </div>
+                    <p className="font-bold text-lg mb-1">No transactions yet</p>
+                    <p className="text-sm opacity-60 text-center max-w-[220px] mb-6">Your Lightning wallet is ready. Receive your first payment!</p>
+                    <button 
+                      onClick={() => navigate('/receive')} 
+                      className="px-6 py-3 bg-blue-600 text-white text-sm font-bold rounded-full shadow-md shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all"
+                    >
+                      Receive Sats
                     </button>
-                  ))
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recentTransactions.map((tx) => (
+                      <button key={tx.id} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-500 ease-out hover:scale-[1.01] ${isDarkMode ? 'hover:bg-blue-900/10' : 'hover:bg-blue-50/50 hover:shadow-sm'}`}>
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+                            {tx.type === 'send' ? (
+                              <Send size={20} className="text-red-500" />
+                            ) : tx.isSettle ? (
+                              <CheckCircle size={20} className="text-green-500" />
+                            ) : (
+                              <ArrowDownLeft size={20} className="text-blue-600" />
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <p className="font-bold text-sm md:text-base">{tx.name}</p>
+                            <p className="text-xs opacity-50 font-medium mt-0.5 truncate max-w-[150px] sm:max-w-[200px]">{tx.desc}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold text-sm md:text-base ${tx.type === 'send' ? 'text-red-500' : 'text-green-500'}`}>
+                            {tx.amount}
+                          </p>
+                          <p className="text-xs opacity-50 font-medium mt-0.5">{tx.sats}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN (Spans 4 cols on desktop) */}
           <div className="lg:col-span-4 space-y-6 lg:space-y-8">
             
-            {/* Today's Market Banner */}
             <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3">{t.todaysMarket}</p>
               <h4 className="font-extrabold text-xl md:text-2xl mb-3 leading-tight flex items-center gap-2">
@@ -225,7 +264,6 @@ export default function Dashboard({ user }) {
               <p className="text-sm opacity-70 leading-relaxed font-medium">{t.averageSettlementTime}</p>
             </div>
 
-            {/* USSD Feature Card */}
             <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 flex flex-col justify-center ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
               <div className="flex items-center gap-3 mb-4">
                 <Smartphone size={20} className="text-blue-500 opacity-80" />
@@ -251,7 +289,6 @@ export default function Dashboard({ user }) {
         </div>
       </div>
 
-      {/* Hide Bottom Nav on Desktop Screens */}
       <div className="md:hidden">
         <BottomNav />
       </div>

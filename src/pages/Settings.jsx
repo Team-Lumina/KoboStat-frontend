@@ -62,7 +62,7 @@ export default function Settings({ user, onLogout }) {
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
-        <GlobalHeader />
+       <GlobalHeader user={user} />
 
         {/* Page Title & Mobile Back Button */}
         <div className="flex items-center gap-4 mb-8">
