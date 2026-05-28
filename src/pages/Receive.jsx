@@ -1,24 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
-import Tooltip from '../components/Tooltip';
 import BottomNav from '../components/BottomNav';
+import GlobalHeader from '../components/GlobalHeader';
 import { 
   FiCheckCircle as Lightbulb, 
   FiZap as Zap, 
   FiX as X,
-  FiGlobe as Globe,
-  FiBell as Bell,
-  FiUser as User,
   FiArrowLeft as ArrowLeft,
   FiMaximize as Maximize
 } from 'react-icons/fi';
 
 export default function Receive() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { isDarkMode, language, setLanguage } = useTheme();
+  const { isDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
   
   const [amount, setAmount] = useState(0);
@@ -32,85 +28,11 @@ export default function Receive() {
 
   const quickAmounts = [500, 1000, 2500, 5000, 10000];
 
-  const handleLanguageToggle = () => {
-    const langs = ['en', 'yo', 'ha', 'ig'];
-    const currentIndex = langs.indexOf(language);
-    if (setLanguage) setLanguage(langs[(currentIndex + 1) % langs.length]);
-  };
-
-  // --------------------------------------------------------
-  // RESPONSIVE GLOBAL HEADER
-  // --------------------------------------------------------
-  const GlobalHeader = () => (
-    <header className="flex justify-between items-center mb-8 md:mb-12">
-      <div className="flex items-center gap-4 md:gap-6">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm md:text-lg shadow-lg shadow-blue-600/20 group-hover:shadow-blue-600/40 group-hover:-translate-y-0.5 transition-all duration-500">
-            KS
-          </div>
-          <span className={`font-extrabold text-xl tracking-tight hidden lg:block transition-colors duration-500 ${isDarkMode ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'}`}>KoboSats</span>
-        </div>
-        
-        <div className={`hidden md:block w-px h-8 transition-colors duration-700 ${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'}`}></div>
-        
-        <div className="hidden md:block">
-          <p className={`text-[10px] uppercase tracking-widest font-bold mb-1 ${isDarkMode ? 'text-blue-400/50' : 'text-blue-600/50'}`}>{t.greeting || "GOOD MORNING"}</p>
-          <h2 className={`font-bold text-sm leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Amara Okonkwo</h2>
-        </div>
-      </div>
-      
-      <nav className={`hidden md:flex items-center p-1.5 rounded-full border shadow-sm transition-colors duration-700 ${isDarkMode ? 'bg-black border-blue-900/30' : 'bg-white border-blue-100'}`}>
-        {[
-          { name: t.home || 'Home', path: '/' },
-          { name: t.debts || 'Debts', path: '/debts' },
-          { name: t.receive || 'Receive', path: '/receive' },
-          { name: t.ussd || 'USSD', path: '/ussd' },
-        ].map(item => (
-          <button 
-            key={item.name}
-            onClick={() => navigate(item.path)}
-            className={`px-6 py-2 rounded-full text-xs font-bold transition-all duration-500 ease-out ${
-              location.pathname === item.path 
-                ? (isDarkMode ? 'bg-blue-900/30 text-blue-400 shadow-inner' : 'bg-blue-50 text-blue-600 shadow-inner')
-                : (isDarkMode ? 'text-slate-400 hover:bg-blue-900/10 hover:text-blue-400' : 'text-slate-500 hover:bg-blue-50/50 hover:text-blue-600')
-            }`}
-          >
-            {item.name}
-          </button>
-        ))}
-      </nav>
-
-      <div className="flex items-center gap-3 sm:gap-4">
-        <Tooltip text="Change Language">
-          <button 
-            onClick={handleLanguageToggle}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-500 ease-out hover:-translate-y-0.5 border shadow-sm hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-100 text-blue-600 hover:bg-blue-50'}`}
-          >
-            <Globe size={16} /> <span className="hidden sm:inline">{language.toUpperCase()}</span>
-          </button>
-        </Tooltip>
-        <Tooltip text="Notifications">
-          <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-out hover:-translate-y-0.5 relative border shadow-sm hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-100 text-blue-600 hover:bg-blue-50'}`}>
-            <Bell size={18} />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-500 rounded-full ring-2 ring-white dark:ring-black"></span>
-          </button>
-        </Tooltip>
-        <Tooltip text="Account Settings">
-          <button 
-            onClick={() => navigate('/settings')}
-            className={`hidden md:flex w-10 h-10 rounded-full items-center justify-center transition-all duration-500 ease-out hover:-translate-y-0.5 border shadow-sm hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-100 text-blue-600 hover:bg-blue-50'}`}
-          >
-            <User size={18} />
-          </button>
-        </Tooltip>
-      </div>
-    </header>
-  );
-
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
+        {/* REUSABLE GLOBAL HEADER */}
         <GlobalHeader />
 
         {/* Page Title & Back Button (Mobile mainly) */}
