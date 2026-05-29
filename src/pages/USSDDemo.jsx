@@ -4,22 +4,21 @@ import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
-import { sendUssdCommand } from '../services/api'; // Live API import
+import { sendUssdCommand } from '../services/api'; 
 import { 
   FiArrowLeft as ArrowLeft,
   FiDelete as Delete, 
   FiPhone as Phone, 
   FiSmartphone as Smartphone,
-  FiWifiOff as WifiOff,
-  FiZap as Zap
+  FiWifiOff as WifiOff
 } from 'react-icons/fi';
 
-// THE FIX: Accept the `user` prop
 export default function USSDDemo({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
+  const [ussdHistory, setUssdHistory] = useState('');
   
   const [isLoaded, setIsLoaded] = useState(false);
   
@@ -44,7 +43,6 @@ export default function USSDDemo({ user }) {
 
   // Process the raw string from the backend
   const processUssdResponse = (rawResponse) => {
-    // Ensure we are working with a string
     const text = typeof rawResponse === 'string' ? rawResponse : (rawResponse.message || JSON.stringify(rawResponse));
     
     setSessionState('menu');
@@ -52,25 +50,22 @@ export default function USSDDemo({ user }) {
 
     if (text.startsWith('END')) {
       setIsSessionEnded(true);
-      // Strip "END " for a cleaner UI
       setUssdResponse(text.replace(/^END\s*/, ''));
     } else if (text.startsWith('CON')) {
       setIsSessionEnded(false);
-      // Strip "CON " for a cleaner UI
       setUssdResponse(text.replace(/^CON\s*/, ''));
     } else {
-      // Fallback if the backend forgets the prefix
       setIsSessionEnded(false);
       setUssdResponse(text);
     }
   };
 
-  const handleDial = async () => {
+const handleDial = async () => {
     if (!ussdInput) return;
     setSessionState('loading');
+    setUssdHistory(''); // <-- Start fresh history
     
     try {
-      // Send the initial shortcode (e.g. *384*7287#)
       const res = await sendUssdCommand(activePhone, ussdInput);
       processUssdResponse(res);
     } catch (error) {
@@ -78,23 +73,31 @@ export default function USSDDemo({ user }) {
     }
   };
 
-  // Interactive USSD Menu Logic for live demos
-  const handleMenuSubmit = async () => {
+  // Interactive USSD Menu Logic
+const handleMenuSubmit = async () => {
+    if (!ussdInput && !isSessionEnded) return;
     setSessionState('loading');
     
     try {
-      // Send the user's menu selection (e.g. "1")
-      const res = await sendUssdCommand(activePhone, ussdInput);
+      // THE MAGIC SAUCE: Append the new input to the history with a '*'
+      const cumulativeText = ussdHistory ? `${ussdHistory}*${ussdInput}` : ussdInput;
+      
+      // Update our state so the next input builds on this one
+      setUssdHistory(cumulativeText);
+
+      // Send the cumulative string to the backend! (e.g., "2*5000*08012345678")
+      const res = await sendUssdCommand(activePhone, cumulativeText);
       processUssdResponse(res);
     } catch (error) {
       processUssdResponse("END Connection Error. Please check your network.");
     }
   };
 
-  const cancelSession = () => {
+const cancelSession = () => {
     setSessionState('dialer');
     setUssdResponse('');
     setUssdInput('');
+    setUssdHistory(''); // <-- Clear history here
     setIsSessionEnded(false);
   };
 
@@ -102,7 +105,6 @@ export default function USSDDemo({ user }) {
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
-        {/* REUSABLE GLOBAL HEADER WITH USER PROP */}
         <GlobalHeader user={user} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center min-h-[75vh]">
@@ -137,16 +139,13 @@ export default function USSDDemo({ user }) {
           {/* RIGHT COLUMN: The Emulator */}
           <div className="lg:col-span-6 flex justify-center">
             
-            {/* CSS Phone Frame */}
             <div className={`w-full max-w-sm md:max-w-md mx-auto transition-all duration-700 ease-out ${
               'md:border-[12px] md:rounded-[3rem] md:shadow-2xl md:overflow-hidden relative ' + 
               (isDarkMode ? 'md:border-zinc-900 md:bg-black md:shadow-blue-900/20' : 'md:border-slate-800 md:bg-white md:shadow-slate-400/50')
             }`}>
               
-              {/* Fake Phone Notch */}
               <div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-50"></div>
 
-              {/* Mobile Page Title & Back Button */}
               <div className="flex items-center gap-4 mb-6 md:hidden px-2 pt-2">
                 <button onClick={() => navigate(-1)} className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400' : 'bg-white border-blue-100 text-blue-600'}`}>
                   <ArrowLeft size={20} />
@@ -159,7 +158,6 @@ export default function USSDDemo({ user }) {
 
               <div className="md:px-6 md:py-12 md:min-h-[750px] flex flex-col justify-between h-full">
                 
-                {/* --- USSD SESSION UI --- */}
                 {sessionState !== 'dialer' ? (
                   <div className={`flex-1 flex items-center justify-center p-6 rounded-[2rem] shadow-inner border mb-6 transition-all duration-300 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-800 text-white border-slate-700'}`}>
                     
@@ -170,13 +168,10 @@ export default function USSDDemo({ user }) {
                       </div>
                     ) : (
                       <div className="w-full text-left font-mono space-y-4">
-                        
-                        {/* Display the live response from the backend */}
                         <div className="text-sm leading-relaxed whitespace-pre-line tracking-tight text-green-400">
                           {ussdResponse}
                         </div>
                         
-                        {/* Conditionally show input and buttons based on END vs CON */}
                         {!isSessionEnded ? (
                           <>
                             <div className="flex items-center gap-2 border-b-2 border-green-500/50 pb-1 mt-6">
@@ -184,8 +179,11 @@ export default function USSDDemo({ user }) {
                               <input 
                                 type="text" 
                                 value={ussdInput}
-                                readOnly
+                                onChange={(e) => setUssdInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleMenuSubmit()}
+                                autoFocus
                                 className="bg-transparent border-none outline-none text-white font-bold w-full"
+                                placeholder="Reply here..."
                               />
                             </div>
                             
@@ -204,8 +202,6 @@ export default function USSDDemo({ user }) {
                   </div>
 
                 ) : (
-
-                  /* --- STANDARD DIALER UI --- */
                   <>
                     <div className="px-2 mb-8">
                       <div className={`w-full h-32 md:h-40 rounded-[2rem] p-6 shadow-inner flex flex-col items-center justify-center text-center transition-colors ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-100 border border-slate-200'}`}>

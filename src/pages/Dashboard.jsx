@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
-import Tooltip from '../components/Tooltip';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
 import { getWalletBalance, getTransactionHistory } from '../services/api'; 
@@ -10,7 +9,7 @@ import {
   FiEye as Eye, 
   FiEyeOff as EyeOff, 
   FiZap as Zap, 
-  FiArrowDown as ArrowDown, 
+  FiArrowDown as ArrowDown,
   FiSend as Send,
   FiFileText as FileText, 
   FiUsers as Users,
@@ -20,6 +19,16 @@ import {
   FiSmartphone as Smartphone,
   FiRefreshCw as RefreshCw
 } from 'react-icons/fi';
+
+// Bulletproof Tooltip that ONLY shows on hover
+const HoverTooltip = ({ text, children }) => (
+  <div className="relative group flex items-center justify-center">
+    {children}
+    <div className="absolute bottom-full mb-2 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300 whitespace-nowrap z-50 shadow-lg">
+      {text}
+    </div>
+  </div>
+);
 
 export default function Dashboard({ user }) {
   const navigate = useNavigate();
@@ -64,7 +73,6 @@ export default function Dashboard({ user }) {
         }));
         setRecentTransactions(mappedTxs);
       } else {
-        // Zero state for authentic live demo
         setRecentTransactions([]);
       }
     } catch (error) {
@@ -83,7 +91,6 @@ export default function Dashboard({ user }) {
     setIsLoaded(true);
     fetchDashboardData();
 
-    // Auto-poll every 10 seconds for real-time demo magic
     const intervalId = setInterval(() => {
       fetchDashboardData(true);
     }, 10000);
@@ -102,28 +109,21 @@ export default function Dashboard({ user }) {
           
           <div className="lg:col-span-8 space-y-6 lg:space-y-8">
             
+            {/* ORIGINAL BLUE BALANCE CARD */}
             <div className="p-8 md:p-10 rounded-[2rem] bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:opacity-10 transition-opacity duration-1000 ease-out"></div>
               
               <div className="flex justify-between items-center mb-8 relative z-10">
                 <p className="text-[10px] font-bold tracking-widest opacity-90 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm uppercase shadow-sm border border-white/5">
-                  {t.walletBalance}
+                  {t.walletBalance || "WALLET BALANCE"}
                 </p>
-                <div className="flex gap-2">
-                  <Tooltip text="Refresh Balance">
-                    <button 
-                      onClick={() => fetchDashboardData(true)} 
-                      className={`p-2 rounded-full hover:bg-white/20 transition-all duration-500 ${isRefreshing ? 'animate-spin' : ''}`}
-                    >
-                      <RefreshCw size={18} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip text={showBalance ? t.hideBalance : t.showBalance}>
-                    <button onClick={() => setShowBalance(!showBalance)} className="p-2 rounded-full hover:bg-white/20 transition-colors duration-500">
-                      {showBalance ? <Eye size={20} /> : <EyeOff size={20} />}
-                    </button>
-                  </Tooltip>
-                </div>
+                
+                {/* FIXED TOOLTIP HOVER */}
+                <HoverTooltip text={showBalance ? t.hideBalance || "Hide Balance" : t.showBalance || "Show Balance"}>
+                  <button onClick={() => setShowBalance(!showBalance)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors duration-500">
+                    {showBalance ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </HoverTooltip>
               </div>
               
               <div className="relative z-10 mb-10 min-h-[100px]">
@@ -139,7 +139,7 @@ export default function Dashboard({ user }) {
                     </h1>
                     <p className="text-sm md:text-base opacity-90 flex items-center gap-2 font-medium">
                       <Zap size={18} fill="currentColor" className="text-yellow-300 drop-shadow-md" /> 
-                      {walletBalance.sats.toLocaleString()} {t.availableSats}
+                      {walletBalance.sats.toLocaleString()} {t.availableSats || "sats available"}
                     </p>
                   </>
                 )}
@@ -147,49 +147,54 @@ export default function Dashboard({ user }) {
 
               <div className="flex justify-between items-center pt-6 border-t border-white/20 relative z-10">
                 <p className="text-sm flex items-center gap-2 font-medium opacity-90">
-                  <TrendingUp size={16} /> {t.thisWeek}
+                  <TrendingUp size={16} /> {t.thisWeek || "This week"}
                 </p>
                 <p className="text-base font-bold tracking-wide">+₦0</p>
               </div>
             </div>
 
+            {/* RESTORED BLUE QUICK ACTIONS */}
             <div className="grid grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
               {[
-                { name: t.actionReceive, icon: <ArrowDown size={24} />, path: '/receive' },
-                { name: t.actionSendSats, icon: <Send size={24} />, path: '/' },
-                { name: t.actionLogDebt, icon: <FileText size={24} />, path: '/debts' },
-                { name: t.actionViewDebts, icon: <Users size={24} />, path: '/debts' },
+                { name: t.actionReceive || "Receive", icon: <ArrowDown size={24} />, path: '/receive' },
+                { name: t.actionSendSats || "Send Sats", icon: <Send size={24} />, path: '/send' },
+                { name: t.actionLogDebt || "Log Debt", icon: <FileText size={24} />, path: '/debts' },
+                { name: t.actionViewDebts || "View Debts", icon: <Users size={24} />, path: '/debts' },
               ].map((action, i) => (
-                <Tooltip key={i} text={action.name}>
-                  <button 
-                    onClick={() => navigate(action.path)}
-                    className={`flex flex-col items-center justify-center p-4 sm:p-6 rounded-[1.5rem] transition-all duration-500 ease-out hover:-translate-y-1 group border ${
-                      isDarkMode 
-                        ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-lg hover:shadow-black/50' 
-                        : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mb-3 transition-transform duration-500 group-hover:scale-110 ${
-                      isDarkMode ? 'bg-blue-900/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white shadow-inner group-hover:shadow-blue-600/30'
-                    }`}>
-                      {action.icon}
-                    </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-center opacity-80 whitespace-nowrap">{action.name}</span>
-                  </button>
-                </Tooltip>
+                <button 
+                  key={i}
+                  onClick={() => navigate(action.path)}
+                  className={`flex flex-col items-center justify-center p-4 sm:p-6 rounded-[1.5rem] transition-all duration-500 ease-out hover:-translate-y-1 group border ${
+                    isDarkMode 
+                      ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-lg hover:shadow-black/50' 
+                      : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5'
+                  }`}
+                >
+                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mb-3 transition-transform duration-500 group-hover:scale-110 ${
+                    isDarkMode ? 'bg-blue-900/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white shadow-inner group-hover:shadow-blue-600/30'
+                  }`}>
+                    {action.icon}
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-bold text-center opacity-80 whitespace-nowrap">{action.name}</span>
+                </button>
               ))}
             </div>
 
+            {/* RECENT ACTIVITY */}
             <div className="pt-2">
               <div className="flex justify-between items-end mb-6">
-                <h3 className="font-bold text-xl">{t.recentActivity}</h3>
-                <button 
-                  onClick={() => fetchDashboardData(true)} 
-                  className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline transition-all"
-                >
-                  <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
+                <h3 className="font-bold text-xl">{t.recentActivity || "Recent activity"}</h3>
+                
+                {/* FIXED REFRESH TOOLTIP */}
+                <HoverTooltip text="Refresh Data">
+                  <button 
+                    onClick={() => fetchDashboardData(true)} 
+                    className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline transition-all"
+                  >
+                    <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                    {t.seeAll || "See all"}
+                  </button>
+                </HoverTooltip>
               </div>
               
               <div className={`rounded-[2rem] p-3 transition-all duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border border-blue-900/30' : 'bg-white shadow-sm border border-blue-100'}`}>
@@ -254,25 +259,25 @@ export default function Dashboard({ user }) {
             </div>
           </div>
 
+          {/* RIGHT COLUMN */}
           <div className="lg:col-span-4 space-y-6 lg:space-y-8">
-            
             <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3">{t.todaysMarket}</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3">{t.todaysMarket || "TODAY'S MARKET"}</p>
               <h4 className="font-extrabold text-xl md:text-2xl mb-3 leading-tight flex items-center gap-2">
-                {t.customersPayingFaster} <Zap size={24} className="text-yellow-400 drop-shadow-sm" fill="currentColor" />
+                Customers are paying faster <Zap size={24} className="text-yellow-400 drop-shadow-sm" fill="currentColor" />
               </h4>
-              <p className="text-sm opacity-70 leading-relaxed font-medium">{t.averageSettlementTime}</p>
+              <p className="text-sm opacity-70 leading-relaxed font-medium">Your average settlement time this week is under 3 seconds. Keep it going, Amara.</p>
             </div>
 
             <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 flex flex-col justify-center ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
               <div className="flex items-center gap-3 mb-4">
                 <Smartphone size={20} className="text-blue-500 opacity-80" />
-                <p className="text-[10px] font-bold text-blue-500 opacity-80 uppercase tracking-widest">{t.ussdCodeLabel}</p>
+                <p className="text-[10px] font-bold text-blue-500 opacity-80 uppercase tracking-widest">{t.ussdCodeLabel || "USSD CODE"}</p>
               </div>
               <h3 className="text-4xl md:text-5xl font-extrabold text-blue-600 mb-4 tracking-wider">
                 *384*7287#
               </h3>
-              <p className="text-sm opacity-70 mb-8 font-medium leading-relaxed">{t.dialFromAnyPhone}</p>
+              <p className="text-sm opacity-70 mb-8 font-medium leading-relaxed">Dial from any phone — no internet needed.</p>
               <button 
                 onClick={() => navigate('/ussd')}
                 className={`w-full py-4 rounded-full font-bold text-sm transition-all duration-500 ease-out hover:scale-[1.02] active:scale-95 ${
@@ -281,7 +286,7 @@ export default function Dashboard({ user }) {
                     : 'border border-blue-200 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white'
                 }`}
               >
-                {t.openUssdEmulator}
+                {t.openUssdEmulator || "Open USSD emulator"}
               </button>
             </div>
           </div>

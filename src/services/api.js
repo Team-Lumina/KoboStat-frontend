@@ -164,3 +164,46 @@ export const sendUssdCommand = async (phoneNumber, textInput) => {
     return "END Connection Error. Please try again.";
   }
 };
+
+// Add this to the bottom of src/services/api.js
+
+export const payInvoice = async (phone, invoiceString) => {
+  try {
+    // Note: Double check with Busayomi if the endpoint is exactly '/api/pay' or something like '/api/lightning/pay'
+    const response = await fetch('https://kobosat-backend.onrender.com/api/pay', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        phone: phone, 
+        invoice: invoiceString 
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || data.error || 'Payment failed');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error paying invoice:', error);
+    return { error: error.message || "Failed to connect to the server" };
+  }
+};
+
+// Add to src/services/api.js
+export const getWalletSeed = async (phone) => {
+  try {
+    // Verify this endpoint URL with Busayomi
+    const response = await fetch(`https://kobosat-backend.onrender.com/api/wallets/${phone}/seed`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch seed');
+    return data;
+  } catch (error) {
+    console.error('Error fetching seed:', error);
+    throw error; // Let the UI catch it and show the dummy fallback
+  }
+};

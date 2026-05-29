@@ -10,7 +10,7 @@ import Receive from './pages/Receive';
 import Debts from './pages/Debts';
 import Settings from './pages/Settings';
 import USSDDemo from './pages/USSDDemo';
-
+import Send from './pages/Send';
 export default function App() {
   const { isDarkMode } = useTheme();
   
@@ -102,6 +102,8 @@ export default function App() {
 
           {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
+
+          <Route path="/send" element={<Send user={user} />} />
         </Routes>
       </div>
     </Router>

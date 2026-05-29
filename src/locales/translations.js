@@ -81,7 +81,12 @@ export const translations = {
     averageSettlementTime: "Your average settlement time this week is under 3 seconds. Keep it going, Amara.",
     ussdCodeLabel: "USSD Code",
     dialFromAnyPhone: "Dial from any phone — no internet needed.",
-    openUssdEmulator: "Open USSD emulator"
+    openUssdEmulator: "Open USSD emulator",
+  recoverySection: "Wallet Recovery",
+  seedPhrase: "Seed Phrase Backup",
+  seedPhraseDesc: "This 12-word phrase is the master key to your funds. Never share it with anyone.",
+  revealSeed: "Reveal Seed Phrase",
+  copySeed: "Copy Seed Phrase",
   },
 
   yo: {
@@ -338,4 +343,5 @@ export const translations = {
     dialFromAnyPhone: "Kpọọ site na ekwentị ọ bụla — ịchọghị ịntanetị.",
     openUssdEmulator: "Mepee USSD emulator"
   }
+  
 };
