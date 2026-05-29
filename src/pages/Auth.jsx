@@ -18,25 +18,42 @@ export default function Auth({ onLogin }) {
   // UX States
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgotMsg, setShowForgotMsg] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
+    setShowForgotMsg(false); // Clear the forgot pin message if they start typing again
   };
 
   const handleInitialSubmit = (e) => {
     e.preventDefault();
     setError('');
+    setShowForgotMsg(false);
 
-    // Validation
-    if (formData.phone.length < 10) {
-      setError('Please enter a valid phone number.');
+    // 1. Phone Number Validation (Ensuring standard 11+ digit format)
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 11) {
+      setError('Please enter a valid phone number (at least 11 digits).');
       return;
     }
+
+    // 2. Full Name Validation (Must be at least 2 words during signup)
+    if (!isLogin) {
+      const nameParts = formData.fullName.trim().split(/\s+/);
+      if (nameParts.length < 2) {
+        setError('Please enter your full name (first and last name).');
+        return;
+      }
+    }
+
+    // 3. PIN Validation
     if (formData.pin.length !== 4) {
       setError('PIN must be exactly 4 digits.');
       return;
     }
+    
+    // 4. Confirm PIN Validation
     if (!isLogin && formData.pin !== formData.confirmPin) {
       setError('PINs do not match. Please try again.');
       return;
@@ -68,20 +85,11 @@ export default function Auth({ onLogin }) {
         // REAL-TIME: Check if the phone number exists
         const profile = await getTraderProfile(formData.phone);
         
-        // HACKATHON FIX: Auto-create/Bypass if wallet is not found!
+        // STRICT LOGIN CHECK: Do not bypass if not found or API fails!
         if (!profile || profile.error) {
-          console.log("Wallet not found, auto-creating for seamless demo...");
-          
-          // Attempt to register them silently
-          await registerTrader(formData.phone, 'en');
-          
-          // Push them straight into the app so they aren't blocked
-          onLogin({ 
-            phone: formData.phone, 
-            name: 'Demo Trader',
-            isOnboarded: true 
-          }); 
-          return;
+          setError("Sorry, cannot fetch data at the moment from backend, create a new account");
+          setIsLoading(false);
+          return; // Block login completely
         }
 
         // Success! Pass live data to the parent app state
@@ -96,12 +104,8 @@ export default function Auth({ onLogin }) {
         const newTrader = await registerTrader(formData.phone, 'en');
         
         if (!newTrader) {
-          // If registration fails during demo, just push them through locally
-          onLogin({ 
-            phone: formData.phone, 
-            name: formData.fullName || 'Trader',
-            isOnboarded: false 
-          });
+          setError("Registration failed. Please try again.");
+          setIsLoading(false);
           return;
         }
 
@@ -114,12 +118,12 @@ export default function Auth({ onLogin }) {
       }
     } catch (err) {
       console.error("Auth API Error:", err);
-      // Ultimate Hackathon Fallback: If the backend drops completely, let the judges into the app!
-      onLogin({ 
-        phone: formData.phone, 
-        name: formData.fullName || 'Demo Trader',
-        isOnboarded: true 
-      });
+      // Catch network failures and display truthful error
+      if (isLogin) {
+        setError("Sorry, cannot fetch data at the moment from backend, create a new account");
+      } else {
+        setError("Network error. Could not create account.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +133,7 @@ export default function Auth({ onLogin }) {
     setIsLogin(!isLogin);
     setStep(1);
     setError('');
+    setShowForgotMsg(false);
     setFormData({ fullName: '', phone: '', pin: '', confirmPin: '' });
     setOtp(['', '', '', '']);
   };
@@ -138,7 +143,6 @@ export default function Auth({ onLogin }) {
       
       {/* LEFT: Branding/Pitch - The Blue Background (Desktop Only) */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-blue-600 to-indigo-800 p-16 flex-col justify-between text-white relative overflow-hidden">
-        {/* Decorative background blurs */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-400 opacity-20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"></div>
 
@@ -276,14 +280,19 @@ export default function Auth({ onLogin }) {
                 </div>
 
                 {isLogin && (
-                  <div className="flex justify-end pt-1">
+                  <div className="flex flex-col items-end pt-1">
                     <button 
                       type="button"
-                      onClick={() => alert("To recover your wallet, you will need your 12-word seed phrase.")}
+                      onClick={() => setShowForgotMsg(true)}
                       className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
                     >
                       Forgot PIN?
                     </button>
+                    {showForgotMsg && (
+                      <span className="text-xs font-medium text-red-500 mt-1 animate-in fade-in zoom-in duration-300">
+                        feature not available yet
+                      </span>
+                    )}
                   </div>
                 )}
 
