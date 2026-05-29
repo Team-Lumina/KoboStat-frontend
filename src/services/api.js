@@ -1,10 +1,28 @@
-
+// ========================================================
+// CONFIGURATION & EMERGENCY TOGGLE
+// ========================================================
 const BASE_URL = 'https://kobosat-backend.onrender.com';
+
+// 🚨 SET TO true FOR A BULLETPROOF KILL-SWITCH ON DEMO SUNDAY.
+// If the Breez LSP fails, the internet drops, or CORS blocks you,
+// flip this to true to run a flawless local simulation.
+const DEMO_MODE = false;
+
+// Helper to initialize local storage for Demo Mode
+const initDemoStorage = (phone) => {
+  if (!localStorage.getItem(`kobosat_balance_${phone}`)) {
+    localStorage.setItem(`kobosat_balance_${phone}`, JSON.stringify({ balance: 25000, sat: 25000 }));
+  }
+  if (!localStorage.getItem(`kobosat_tx_${phone}`)) {
+    localStorage.setItem(`kobosat_tx_${phone}`, JSON.stringify([]));
+  }
+};
 
 // --------------------------------------------------------
 // 1. HEALTHCHECK
 // --------------------------------------------------------
 export const checkApiHealth = async () => {
+  if (DEMO_MODE) return true;
   try {
     const response = await fetch(`${BASE_URL}/api/health`, { method: 'GET' });
     return response.ok;
@@ -18,6 +36,10 @@ export const checkApiHealth = async () => {
 // 2. TRADERS MANAGEMENT (Auth)
 // --------------------------------------------------------
 export const registerTrader = async (phoneNumber, language = 'en') => {
+  if (DEMO_MODE) {
+    initDemoStorage(phoneNumber);
+    return { status: "success", phone_number: phoneNumber, language };
+  }
   try {
     const response = await fetch(`${BASE_URL}/api/v1/traders/register`, {
       method: 'POST',
@@ -33,6 +55,7 @@ export const registerTrader = async (phoneNumber, language = 'en') => {
 };
 
 export const getTraderProfile = async (phone) => {
+  if (DEMO_MODE) return { phone_number: phone, language: 'en', name: "Trader" };
   try {
     const response = await fetch(`${BASE_URL}/api/v1/traders/${phone}`, { 
       method: 'GET',
@@ -50,6 +73,10 @@ export const getTraderProfile = async (phone) => {
 // 3. LIGHTNING WALLET & TRANSACTIONS
 // --------------------------------------------------------
 export const getWalletBalance = async (phone) => {
+  if (DEMO_MODE) {
+    initDemoStorage(phone);
+    return JSON.parse(localStorage.getItem(`kobosat_balance_${phone}`));
+  }
   try {
     const response = await fetch(`${BASE_URL}/api/v1/lightning/balance/${phone}`, {
       method: 'GET',
@@ -64,6 +91,10 @@ export const getWalletBalance = async (phone) => {
 };
 
 export const getTransactionHistory = async (phone) => {
+  if (DEMO_MODE) {
+    initDemoStorage(phone);
+    return JSON.parse(localStorage.getItem(`kobosat_tx_${phone}`));
+  }
   try {
     const response = await fetch(`${BASE_URL}/api/v1/transactions/${phone}`, { 
       method: 'GET',
@@ -78,6 +109,12 @@ export const getTransactionHistory = async (phone) => {
 };
 
 export const generateInvoice = async (phoneNumber, amountNgn) => {
+  if (DEMO_MODE) {
+    return { 
+      payment_request: "lnbc98830n1p4pnd08pp545d32jypwycfqffn63qqdrsf3hyejypx5nk4cecyjfdzpmcxsaeqsp5nwax33wnmev46...",
+      amount: Number(amountNgn)
+    };
+  }
   try {
     const response = await fetch(`${BASE_URL}/api/v1/lightning/invoice`, {
       method: 'POST',
@@ -99,6 +136,7 @@ export const generateInvoice = async (phoneNumber, amountNgn) => {
 // 4. DEBT TRACKER LEDGER
 // --------------------------------------------------------
 export const createDebtRecord = async (creditorPhone, debtorPhone, amountNgn, description, dueDate) => {
+  if (DEMO_MODE) return { id: "demo-debt", amount_ngn: amountNgn, description };
   try {
     const response = await fetch(`${BASE_URL}/api/v1/debts`, {
       method: 'POST',
@@ -120,6 +158,7 @@ export const createDebtRecord = async (creditorPhone, debtorPhone, amountNgn, de
 };
 
 export const listDebts = async (phone) => {
+  if (DEMO_MODE) return [{ id: "debt-1", debtor_phone: "08012345678", amount_ngn: 2500, description: "Bag of Rice", settled: false }];
   try {
     const response = await fetch(`${BASE_URL}/api/v1/debts/${phone}`, { method: 'GET' });
     if (!response.ok) throw new Error('Failed to load ledger');
@@ -131,6 +170,7 @@ export const listDebts = async (phone) => {
 };
 
 export const settleDebt = async (debtId, phone) => {
+  if (DEMO_MODE) return { status: "success", message: "Debt settled locally" };
   try {
     const response = await fetch(`${BASE_URL}/api/v1/debts/${debtId}/settle?phone=${phone}`, {
       method: 'PATCH'
@@ -147,6 +187,9 @@ export const settleDebt = async (debtId, phone) => {
 // 5. USSD SIMULATOR ENGINE
 // --------------------------------------------------------
 export const sendUssdCommand = async (phone, ussdText) => {
+  if (DEMO_MODE) {
+    return { status: "CON", message: "KoboSats Gateway\n1. Check Balance\n2. Pay Invoice\n3. Cashout" };
+  }
   try {
     const response = await fetch(`${BASE_URL}/api/v1/ussd/simulate`, {
       method: 'POST',
@@ -169,8 +212,29 @@ export const sendUssdCommand = async (phone, ussdText) => {
 // 6. PAYMENTS & SEED PHRASE
 // --------------------------------------------------------
 export const payInvoice = async (phone, invoiceString) => {
+  if (DEMO_MODE) {
+    initDemoStorage(phone);
+    
+    // Simulate updating balance locally for visual feedback during presentation
+    let currentData = JSON.parse(localStorage.getItem(`kobosat_balance_${phone}`));
+    // Assuming a 5,000 satoshi payment for the demo script
+    if (currentData.balance >= 5000) {
+        currentData.balance -= 5000; 
+        currentData.sat -= 5000;
+    }
+    localStorage.setItem(`kobosat_balance_${phone}`, JSON.stringify(currentData));
+
+    // Append to fake transaction history
+    let txHistory = JSON.parse(localStorage.getItem(`kobosat_tx_${phone}`));
+    txHistory.unshift({ id: `tx-${Date.now()}`, type: 'send', amount: 5000, status: 'success', timestamp: new Date().toISOString() });
+    localStorage.setItem(`kobosat_tx_${phone}`, JSON.stringify(txHistory));
+
+    return { status: "success", message: "Payment processed successfully", balance: currentData.balance };
+  }
+  
   try {
-    const response = await fetch(`${BASE_URL}/api/pay`, {
+    // 🔥 UPDATED ENDPOINT URL HERE 🔥
+    const response = await fetch(`${BASE_URL}/api/v1/lightning/pay`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -195,6 +259,7 @@ export const payInvoice = async (phone, invoiceString) => {
 };
 
 export const getWalletSeed = async (phone) => {
+  if (DEMO_MODE) return { seed: "apple banana cherry dog elephant fox grape horse ink jam kite lemon" };
   try {
     const response = await fetch(`${BASE_URL}/api/wallets/${phone}/seed`);
     const data = await response.json();
