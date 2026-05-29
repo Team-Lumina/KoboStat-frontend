@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import BottomNav from '../components/BottomNav';
-import GlobalHeader from '../components/GlobalHeader'; // Using the external dynamic header
-import { generateInvoice } from '../services/api'; // Live API import
+import GlobalHeader from '../components/GlobalHeader'; 
+import { generateInvoice } from '../services/api'; 
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   FiCheckCircle as Lightbulb, 
   FiZap as Zap, 
@@ -15,7 +16,6 @@ import {
   FiCheck as Check
 } from 'react-icons/fi';
 
-// Accept the `user` prop passed from App.jsx
 export default function Receive({ user }) {
   const navigate = useNavigate();
   const { isDarkMode, language } = useTheme();
@@ -198,10 +198,16 @@ export default function Receive({ user }) {
                 {invoiceStr ? (
                   <div className="w-full flex flex-col items-center">
                     <div className="p-3 bg-white rounded-xl shadow-sm mb-4">
-                      {/* Placeholder QR Code for Hackathon MVP */}
-                      <div className="w-40 h-40 bg-[url('https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg')] bg-cover bg-center opacity-80" />
+                      <QRCodeSVG 
+                        value={`lightning:${invoiceStr}`} 
+                        size={160} 
+                        level={"M"}
+                        includeMargin={true}
+                        className="rounded-lg"
+                      />                    
                     </div>
-<div className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-colors duration-500 ${isDarkMode ? 'bg-black border-slate-800' : 'bg-slate-100 border-slate-200'}`}>                      <p className="text-xs truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
+                    <div className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-colors duration-500 ${isDarkMode ? 'bg-black border-slate-800' : 'bg-slate-100 border-slate-200'}`}>                      
+                      <p className="text-xs truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
                       <button onClick={handleCopy} className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 transition-colors">
                         {copied ? <Check size={16} /> : <Copy size={16} />}
                       </button>
@@ -249,15 +255,21 @@ export default function Receive({ user }) {
         </div>
       </div>
 
-      {/* Mobile Generated Invoice Overlay (Visible only on small screens when generated) */}
+      {/* Mobile Generated Invoice Overlay */}
       {invoiceStr && (
         <div className="md:hidden fixed inset-x-0 bottom-0 top-20 bg-white dark:bg-black z-50 p-6 flex flex-col items-center justify-center animate-in slide-in-from-bottom">
            <button onClick={() => setInvoiceStr('')} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
              <X size={24} />
            </button>
            <h2 className="text-2xl font-bold mb-8">Scan to Pay</h2>
-           <div className="p-4 bg-white rounded-2xl shadow-xl border border-slate-100 mb-8">
-             <div className="w-56 h-56 bg-[url('https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg')] bg-cover bg-center" />
+           <div className="p-4 bg-white rounded-2xl shadow-xl border border-slate-100 mb-8 flex justify-center items-center">
+             <QRCodeSVG 
+               value={`lightning:${invoiceStr}`} 
+               size={220} 
+               level={"M"}
+               includeMargin={true}
+               className="rounded-lg"
+             />
            </div>
            <div className="w-full max-w-sm flex items-center gap-2 bg-slate-50 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 mb-8">
               <p className="text-sm truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
