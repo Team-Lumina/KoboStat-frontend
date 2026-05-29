@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
-import { payInvoice } from '../services/api'; // Make sure Busayomi exposes this!
+import { payInvoice } from '../services/api'; 
 import { 
   FiArrowLeft as ArrowLeft,
   FiSend as SendIcon,
@@ -35,30 +35,40 @@ export default function Send({ user }) {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setInvoice(text);
+      // Auto-clean on paste
+      setInvoice(text.trim());
       setError('');
       setSuccess(false);
     } catch (err) {
-      setError("Failed to read clipboard.");
+      setError("Failed to read clipboard. Please paste manually.");
     }
   };
 
   const handlePay = async () => {
-    if (!invoice) {
+    // 1. Sanitize the string to prevent whitespace or prefix bugs
+    const cleanInvoice = invoice.trim().replace(/^lightning:/i, '');
+
+    if (!cleanInvoice) {
       setError("Please paste a valid Lightning invoice.");
       return;
     }
 
     setIsPaying(true);
     setError('');
+    setSuccess(false);
 
     try {
-      // Assuming your api.js has a payInvoice(phone, invoiceString) function
-      const result = await payInvoice(activePhone, invoice);
+      const result = await payInvoice(activePhone, cleanInvoice);
       
-      if (result && !result.error) {
+      // Check for success (adjust based on your exact API response structure)
+      if (result && (result.status === "success" || !result.error)) {
         setSuccess(true);
         setInvoice('');
+        
+        // Auto-redirect to dashboard after showing success message for 2 seconds
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
       } else {
         setError(result.error || "Payment failed. Check your balance or invoice.");
       }
@@ -70,7 +80,8 @@ export default function Send({ user }) {
   };
 
   // Simple UI check to see if it looks like a Lightning Invoice
-  const isValidFormat = invoice.toLowerCase().startsWith('lnbc') || invoice.toLowerCase().startsWith('lnurl');
+  const cleanFormatCheck = invoice.trim().replace(/^lightning:/i, '');
+  const isValidFormat = cleanFormatCheck.toLowerCase().startsWith('lnbc') || cleanFormatCheck.toLowerCase().startsWith('lntb') || cleanFormatCheck.toLowerCase().startsWith('lnurl');
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -100,8 +111,8 @@ export default function Send({ user }) {
             )}
 
             {success && (
-              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-600 text-sm font-bold flex items-center gap-2">
-                <CheckCircle size={18} /> Payment Sent Successfully!
+              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-600 text-sm font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
+                <CheckCircle size={18} /> Payment Sent Successfully! Redirecting...
               </div>
             )}
 
@@ -125,12 +136,16 @@ export default function Send({ user }) {
               />
 
               <div className="grid grid-cols-2 gap-4 mt-4">
-                <button className={`py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-colors ${isDarkMode ? 'border-slate-800 hover:bg-slate-900' : 'border-slate-200 hover:bg-slate-50'}`}>
+                {/* Visual placeholder for Hackathon - keeps the UI balanced */}
+                <button 
+                  onClick={() => setError("Camera scanner requires native mobile hardware integration.")}
+                  className={`py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-colors ${isDarkMode ? 'border-slate-800 hover:bg-slate-900' : 'border-slate-200 hover:bg-slate-50'}`}
+                >
                   <Camera size={18} /> Scan QR
                 </button>
                 <button 
                   onClick={handlePay}
-                  disabled={!invoice || isPaying}
+                  disabled={!invoice || isPaying || success}
                   className="py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-blue-600 text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 active:scale-95 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:shadow-none transition-all"
                 >
                   {isPaying ? (
@@ -168,7 +183,7 @@ export default function Send({ user }) {
 
                   <div className={`p-4 rounded-xl border text-left ${isDarkMode ? 'bg-black border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                     <p className="text-[10px] font-bold uppercase opacity-50 mb-1">Network Payload</p>
-                    <p className="font-mono text-xs opacity-80 break-all line-clamp-3">{invoice}</p>
+                    <p className="font-mono text-xs opacity-80 break-all line-clamp-3">{cleanFormatCheck}</p>
                   </div>
                 </div>
               ) : (
