@@ -1,5 +1,5 @@
-// Grab the URL from the .env file we just created
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+const BASE_URL = 'https://kobosat-backend.onrender.com';
 
 // --------------------------------------------------------
 // 1. HEALTHCHECK
@@ -146,31 +146,31 @@ export const settleDebt = async (debtId, phone) => {
 // --------------------------------------------------------
 // 5. USSD SIMULATOR ENGINE
 // --------------------------------------------------------
-export const sendUssdCommand = async (phoneNumber, textInput) => {
+export const sendUssdCommand = async (phone, ussdText) => {
   try {
     const response = await fetch(`${BASE_URL}/api/v1/ussd/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        phone_number: phoneNumber, 
-        text: textInput 
+        phoneNumber: phone, 
+        text: ussdText 
       })
     });
     
-    if (!response.ok) throw new Error('USSD simulation request failed');
-    return await response.json(); 
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error("Error with USSD Simulation:", error);
-    return "END Connection Error. Please try again.";
+    console.error('USSD Error:', error);
+    throw error;
   }
 };
 
-// Add this to the bottom of src/services/api.js
-
+// --------------------------------------------------------
+// 6. PAYMENTS & SEED PHRASE
+// --------------------------------------------------------
 export const payInvoice = async (phone, invoiceString) => {
   try {
-    // Note: Double check with Busayomi if the endpoint is exactly '/api/pay' or something like '/api/lightning/pay'
-    const response = await fetch('https://kobosat-backend.onrender.com/api/pay', {
+    const response = await fetch(`${BASE_URL}/api/pay`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -194,16 +194,14 @@ export const payInvoice = async (phone, invoiceString) => {
   }
 };
 
-// Add to src/services/api.js
 export const getWalletSeed = async (phone) => {
   try {
-    // Verify this endpoint URL with Busayomi
-    const response = await fetch(`https://kobosat-backend.onrender.com/api/wallets/${phone}/seed`);
+    const response = await fetch(`${BASE_URL}/api/wallets/${phone}/seed`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Failed to fetch seed');
     return data;
   } catch (error) {
     console.error('Error fetching seed:', error);
-    throw error; // Let the UI catch it and show the dummy fallback
+    throw error; 
   }
 };
