@@ -39,20 +39,28 @@ export default function Receive({ user }) {
   // Live Exchange Rate State (Default to ~1.02 sats per NGN as fallback)
   const [exchangeRate, setExchangeRate] = useState(1.02);
 
-  const activePhone = user?.phone || "08012345678";
+  const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || "08012345678";
 
   // Trigger entrance animation & grab starting balance
   useEffect(() => {
     setIsLoaded(true);
     
+    // 🔥 THE FIX: Correctly targeting balance_sats from the backend
     const fetchStartingBalance = async () => {
-      const data = await getWalletBalance(activePhone);
-      if (data && data.balance !== undefined) {
-        setInitialBalance(data.balance);
+      try {
+        const data = await getWalletBalance(activePhone);
+        if (data) {
+          setInitialBalance(data.balance_sats || 0);
+        } else {
+          setInitialBalance(0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial balance", err);
+        setInitialBalance(0); // Fallback so polling can still start
       }
     };
     
-    // 🔥 THE FIX: Fetch Live BTC/NGN Rate from CoinGecko
+    // Fetch Live BTC/NGN Rate from CoinGecko
     const fetchLiveRate = async () => {
       try {
         const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=ngn');
@@ -76,15 +84,17 @@ export default function Receive({ user }) {
     };
   }, [activePhone]);
 
-  // The Magic Polling Hook
+  // 🔥 THE FIX: Magic Polling Hook tracking balance_sats
   useEffect(() => {
     if (invoiceStr && initialBalance !== null && !isPaid) {
       // Check the balance every 3 seconds
       pollingInterval.current = setInterval(async () => {
         try {
           const data = await getWalletBalance(activePhone);
-          // If balance increased, payment was successful!
-          if (data && data.balance > initialBalance) {
+          const currentSats = data?.balance_sats || 0;
+          
+          // If sats increased, payment was successful!
+          if (currentSats > initialBalance) {
             clearInterval(pollingInterval.current);
             setIsPaid(true);
             
