@@ -73,12 +73,13 @@ export default function Dashboard({ user }) {
       const isNewUser = !txArray || txArray.length === 0;
 
       // 2. Fetch Balance SECOND
+
       const balanceData = await getWalletBalance(activePhone);
       if (balanceData) {
-        // 🔥 THE HACK: If they have 0 transactions, force the balance to 0
+        //  Trust the backend balance completely so we can see our received sats!
         setWalletBalance({
-          ngn: isNewUser ? 0 : (balanceData.balance_ngn || 0),
-          sats: isNewUser ? 0 : (balanceData.balance_sats || 0)
+          ngn: balanceData.balance_ngn || 0,
+          sats: balanceData.balance_sats || 0
         });
       }
 
