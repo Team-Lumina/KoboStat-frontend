@@ -42,10 +42,8 @@ export default function Debts({ user }) {
     name: '', phone: '', amount: '', due: '', notes: ''
   });
 
-  // 🔥 FIX: No mock data. Use real user phone or local storage fallback.
   const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || null;
 
-  // Trigger entrance animation & fetch data on mount
   useEffect(() => {
     setIsLoaded(true);
     fetchLiveDebts();
@@ -60,11 +58,22 @@ export default function Debts({ user }) {
     setIsLoading(true);
     try {
       const data = await listDebts(activePhone);
-      // Safety check to ensure we always have an array
+      
+      // 🔥 THE FIX: The Data Sanitizer
+      // Guarantees every single debt has a 100% unique ID so React doesn't confuse them
+      const sanitizeDebts = (rawDebts) => {
+        return rawDebts.map((d, index) => ({
+          ...d,
+          // Checks for standard 'id', then Mongo '_id', then Postgres 'debt_id', 
+          // and falls back to a guaranteed random string if all else fails.
+          id: d.id || d._id || d.debt_id || `fallback-${index}-${Math.random().toString(36).substr(2, 9)}`
+        }));
+      };
+
       if (Array.isArray(data)) {
-        setDebts(data);
+        setDebts(sanitizeDebts(data));
       } else if (data && Array.isArray(data.debts)) {
-        setDebts(data.debts);
+        setDebts(sanitizeDebts(data.debts));
       } else {
         setDebts([]);
       }
@@ -82,7 +91,6 @@ export default function Debts({ user }) {
     if (setLanguage) setLanguage(langs[(currentIndex + 1) % langs.length]);
   };
 
-  // Safe mapping and filtering
   const safeDebts = Array.isArray(debts) ? debts : [];
   
   const filteredDebts = safeDebts.filter(debt => {
@@ -98,37 +106,31 @@ export default function Debts({ user }) {
     return matchesSearch && matchesTab;
   });
 
-  // Calculate Total Outstanding dynamically
   const totalOutstanding = safeDebts
     .filter(d => !d.is_settled)
     .reduce((sum, d) => sum + Number(d.amount_ngn || 0), 0);
 
-  // 🔥 FIX: OPTIMISTIC UI REAL-TIME SETTLEMENT
   const handleSettle = async (id) => {
-    // Instantly update the UI so it feels incredibly fast to the user
+    // Because the ID is now perfectly unique, this will only update the ONE item you clicked
     setDebts(prevDebts => prevDebts.map(d => 
       d.id === id ? { ...d, is_settled: true } : d
     ));
 
     try {
-      // Process it quietly in the background
       await settleDebt(id, activePhone);
     } catch (err) {
       console.error("Failed to settle debt", err);
-      // If the backend fails, fetch the real list to revert the UI back
       await fetchLiveDebts(); 
       alert(t.settleError || "Failed to settle debt. Please try again.");
     }
   };
 
-  // 🔥 FIX: REAL-TIME SMS REMINDER INTEGRATION
   const handleRemind = (debt) => {
     const amount = debt.amount_ngn?.toLocaleString() || "0";
     const customerName = debt.description ? debt.description.split(' - ')[0] : (t.customer || 'Customer');
     
     const message = `Hello ${customerName}, this is a polite reminder from KoboSat regarding your pending balance of ₦${amount}. Please let us know when you can settle it. Thank you!`;
 
-    // Triggers the phone's native SMS app
     window.open(`sms:${debt.debtor_phone}?body=${encodeURIComponent(message)}`, '_self');
   };
 
@@ -142,10 +144,9 @@ export default function Debts({ user }) {
     setIsSubmitting(true);
     setError('');
 
-    // Map UI form fields to Backend schema expectations
     const debtorPhone = formData.phone || "0000000000";
     const description = formData.notes ? `${formData.name} - ${formData.notes}` : formData.name;
-    const amountStr = formData.amount.replace(/[^0-9]/g, ''); // Strip commas if any
+    const amountStr = formData.amount.replace(/[^0-9]/g, ''); 
 
     try {
       const newDebt = await createDebtRecord(
@@ -159,7 +160,7 @@ export default function Debts({ user }) {
       if (newDebt) {
         setIsLoggingDebt(false);
         setFormData({ name: '', phone: '', amount: '', due: '', notes: '' });
-        await fetchLiveDebts(); // Refresh ledger
+        await fetchLiveDebts(); 
       } else {
         setError(t.saveDebtError || "Failed to save debt. Please try again.");
       }
@@ -170,9 +171,6 @@ export default function Debts({ user }) {
     }
   };
 
-  // --------------------------------------------------------
-  // LOG A DEBT FORM 
-  // --------------------------------------------------------
   if (isLoggingDebt) {
     return (
       <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
@@ -181,7 +179,6 @@ export default function Debts({ user }) {
           
           <div className="max-w-4xl mx-auto mt-4 sm:mt-10">
             
-            {/* Contextual Back Button & Page Title */}
             <div className="flex items-center gap-4 mb-8">
               <button onClick={() => setIsLoggingDebt(false)} className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-500 ease-out hover:-translate-y-0.5 border shadow-sm hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-100 text-blue-600 hover:bg-blue-50'}`}>
                 <ArrowLeft size={20} />
@@ -251,9 +248,6 @@ export default function Debts({ user }) {
     );
   }
 
-  // --------------------------------------------------------
-  // MAIN DEBT TRACKER
-  // --------------------------------------------------------
   return (
     <div className={`min-h-screen pb-32 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
@@ -261,7 +255,6 @@ export default function Debts({ user }) {
         
         <div className="max-w-4xl mx-auto mt-4 sm:mt-10">
           
-          {/* Page Title */}
           <div className="mb-6 md:mb-8">
             <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400/50' : 'text-blue-600/50'}`}>{t.yourLedger || "YOUR LEDGER"}</p>
             <h1 className="font-extrabold text-2xl md:text-3xl tracking-tight">{t.debtTracker || "Debt Tracker"}</h1>
