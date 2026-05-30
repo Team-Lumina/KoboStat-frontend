@@ -1,326 +1,393 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import BottomNav from '../components/BottomNav';
-import GlobalHeader from '../components/GlobalHeader';
-import { getWalletBalance, getTransactionHistory } from '../services/api'; 
+import GlobalHeader from '../components/GlobalHeader'; 
+import { generateInvoice, getWalletBalance } from '../services/api'; 
+import { QRCodeSVG } from 'qrcode.react';
 import { 
-  FiEye as Eye, 
-  FiEyeOff as EyeOff, 
+  FiCheckCircle as Lightbulb, 
   FiZap as Zap, 
-  FiArrowDown as ArrowDown,
-  FiSend as Send,
-  FiFileText as FileText, 
-  FiUsers as Users,
-  FiArrowDownLeft as ArrowDownLeft,
-  FiTrendingUp as TrendingUp,
-  FiCheckCircle as CheckCircle,
-  FiSmartphone as Smartphone,
-  FiRefreshCw as RefreshCw
+  FiX as X,
+  FiArrowLeft as ArrowLeft,
+  FiMaximize as Maximize,
+  FiCopy as Copy,
+  FiCheck as Check
 } from 'react-icons/fi';
 
-// Bulletproof Tooltip that ONLY shows on hover
-const HoverTooltip = ({ text, children }) => (
-  <div className="relative group flex items-center justify-center">
-    {children}
-    <div className="absolute bottom-full mb-2 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold uppercase tracking-wider rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300 whitespace-nowrap z-50 shadow-lg">
-      {text}
-    </div>
-  </div>
-);
-
-export default function Dashboard({ user }) {
+export default function Receive({ user }) {
   const navigate = useNavigate();
   const { isDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
   
-  const [showBalance, setShowBalance] = useState(true);
+  const [amount, setAmount] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Live State
-  const [walletBalance, setWalletBalance] = useState({ ngn: 0, sats: 0 });
-  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [showTip, setShowTip] = useState(true);
 
-  // 🔥 THE FIX: Prioritize actual user prop, then local storage, and fallback to null.
-  const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || null;
+  // Live API States
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [invoiceStr, setInvoiceStr] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
   
-  // DYNAMIC NAME: Get user's first name, or leave empty if not available
-  const userFirstName = user?.name ? user.name.split(' ')[0] : '';
+  // Real-time Payment Tracking States
+  const [initialBalance, setInitialBalance] = useState(null);
+  const [isPaid, setIsPaid] = useState(false);
+  const pollingInterval = useRef(null);
 
-  const fetchDashboardData = async (silentRefresh = false) => {
-    // 🔥 THE FIX: Stop fetching if we don't have a real user yet!
-    if (!activePhone) {
-      setIsLoadingData(false);
-      return;
+  // Live Exchange Rate State (Default to ~1.02 sats per NGN as fallback)
+  const [exchangeRate, setExchangeRate] = useState(1.02);
+
+  const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || "08012345678";
+
+  // Trigger entrance animation & grab starting balance
+  useEffect(() => {
+    setIsLoaded(true);
+    
+    // 🔥 THE FIX: Correctly targeting balance_sats from the backend
+    const fetchStartingBalance = async () => {
+      try {
+        const data = await getWalletBalance(activePhone);
+        if (data) {
+          setInitialBalance(data.balance_sats || 0);
+        } else {
+          setInitialBalance(0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch initial balance", err);
+        setInitialBalance(0); // Fallback so polling can still start
+      }
+    };
+    
+    // Fetch Live BTC/NGN Rate from CoinGecko
+    const fetchLiveRate = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=ngn');
+        const data = await res.json();
+        if (data && data.bitcoin && data.bitcoin.ngn) {
+          // 1 BTC = 100,000,000 sats
+          const satsPerNgn = 100000000 / data.bitcoin.ngn;
+          setExchangeRate(satsPerNgn);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live BTC exchange rate, using fallback.", err);
+      }
+    };
+
+    fetchStartingBalance();
+    fetchLiveRate();
+    
+    // Cleanup interval on unmount
+    return () => {
+      if (pollingInterval.current) clearInterval(pollingInterval.current);
+    };
+  }, [activePhone]);
+
+  // 🔥 THE FIX: Magic Polling Hook tracking balance_sats
+  useEffect(() => {
+    if (invoiceStr && initialBalance !== null && !isPaid) {
+      // Check the balance every 3 seconds
+      pollingInterval.current = setInterval(async () => {
+        try {
+          const data = await getWalletBalance(activePhone);
+          const currentSats = data?.balance_sats || 0;
+          
+          // If sats increased, payment was successful!
+          if (currentSats > initialBalance) {
+            clearInterval(pollingInterval.current);
+            setIsPaid(true);
+            
+            // Auto-redirect to dashboard after 3 seconds of showing success
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 3000);
+          }
+        } catch (err) {
+          console.error("Polling error", err);
+        }
+      }, 3000);
     }
 
-    // DEBUG: See exactly what phone number the frontend is using
-    console.log("Fetching live data for:", activePhone);
+    return () => {
+      if (pollingInterval.current) clearInterval(pollingInterval.current);
+    };
+  }, [invoiceStr, initialBalance, isPaid, activePhone, navigate]);
 
-    if (!silentRefresh) setIsLoadingData(true);
-    else setIsRefreshing(true);
+  const quickAmounts = [500, 1000, 2500, 5000, 10000];
+
+  const handleGenerateInvoice = async () => {
+    if (amount <= 0) return;
+    
+    setIsGenerating(true);
+    setError('');
+    setInvoiceStr('');
+    setIsPaid(false);
 
     try {
-      // 1. Fetch transactions FIRST
-      const txData = await getTransactionHistory(activePhone);
-      console.log("Backend returned TX Data:", txData);
+      const data = await generateInvoice(activePhone, amount);
       
-      // Handle the object shape returned by the backend
-      const txArray = txData.transactions || txData;
-      const isNewUser = !txArray || txArray.length === 0;
-
-      // 2. Fetch Balance SECOND
-      const balanceData = await getWalletBalance(activePhone);
-      if (balanceData) {
-        // 🔥 THE HACK: If they have 0 transactions, force the balance to 0
-        setWalletBalance({
-          ngn: isNewUser ? 0 : (balanceData.balance_ngn || 0),
-          sats: isNewUser ? 0 : (balanceData.balance_sats || 0)
-        });
-      }
-
-      // 3. Process Transactions for the UI with MULTILINGUAL fallbacks
-      if (Array.isArray(txArray) && txArray.length > 0) {
-        const mappedTxs = txArray.slice(0, 4).map(tx => ({
-          id: tx.id || Math.random().toString(),
-          name: tx.counterparty || (tx.type === 'receive' ? (t.paymentReceived || 'Payment Received') : (t.paymentSent || 'Payment Sent')),
-          desc: tx.description || (tx.type === 'receive' ? (t.lightningDeposit || 'Lightning Deposit') : (t.lightningPayment || 'Lightning Payment')),
-          amount: `${tx.type === 'send' ? '-' : '+'}₦${(tx.amount_ngn || 0).toLocaleString()}`,
-          sats: `${(tx.amount_sats || 0).toLocaleString()} sats`,
-          isSettle: tx.is_settled !== undefined ? tx.is_settled : true,
-          type: tx.type || 'receive'
-        }));
-        setRecentTransactions(mappedTxs);
+      if (data && (data.invoice || data.payment_request)) {
+        setInvoiceStr(data.invoice || data.payment_request);
       } else {
-        setRecentTransactions([]);
+        setError('Failed to generate invoice from server.');
       }
-    } catch (error) {
-      console.error("Failed to load live data:", error);
-      if (!silentRefresh) {
-        setWalletBalance({ ngn: 0, sats: 0 });
-        setRecentTransactions([]);
-      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
     } finally {
-      setIsLoadingData(false);
-      setIsRefreshing(false);
+      setIsGenerating(false);
     }
   };
 
-  useEffect(() => {
-    setIsLoaded(true);
-    fetchDashboardData();
+  const handleCopy = () => {
+    navigator.clipboard.writeText(invoiceStr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-    const intervalId = setInterval(() => {
-      fetchDashboardData(true);
-    }, 10000);
+  const handleClear = () => {
+    setAmount(0);
+    setInvoiceStr('');
+    setError('');
+    setIsPaid(false);
+    if (pollingInterval.current) clearInterval(pollingInterval.current);
+  };
 
-    return () => clearInterval(intervalId);
-  }, [user, activePhone]); // Re-run if activePhone finally loads
+  // Helper to calculate exact sats dynamically
+  const calculatedSats = Math.round(amount * exchangeRate);
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
-      
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
         
         <GlobalHeader user={user} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          
-          <div className="lg:col-span-8 space-y-6 lg:space-y-8">
-            
-            {/* ORIGINAL BLUE BALANCE CARD */}
-            <div className="p-8 md:p-10 rounded-[2rem] bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-2xl shadow-blue-600/20 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:opacity-10 transition-opacity duration-1000 ease-out"></div>
-              
-              <div className="flex justify-between items-center mb-8 relative z-10">
-                <p className="text-[10px] font-bold tracking-widest opacity-90 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm uppercase shadow-sm border border-white/5">
-                  {t.walletBalance || "WALLET BALANCE"}
-                </p>
-                
-                {/* FIXED TOOLTIP HOVER */}
-                <HoverTooltip text={showBalance ? t.hideBalance || "Hide Balance" : t.showBalance || "Show Balance"}>
-                  <button onClick={() => setShowBalance(!showBalance)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors duration-500">
-                    {showBalance ? <Eye size={18} /> : <EyeOff size={18} />}
-                  </button>
-                </HoverTooltip>
-              </div>
-              
-              <div className="relative z-10 mb-10 min-h-[100px]">
-                {isLoadingData && !isRefreshing ? (
-                  <div className="animate-pulse space-y-4">
-                    <div className="h-14 w-48 bg-white/20 rounded-xl"></div>
-                    <div className="h-4 w-32 bg-white/10 rounded-full"></div>
-                  </div>
-                ) : (
-                  <>
-                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 tracking-tight drop-shadow-sm">
-                      {showBalance ? `₦${walletBalance.ngn.toLocaleString()}` : "******"}
-                    </h1>
-                    <p className="text-sm md:text-base opacity-90 flex items-center gap-2 font-medium">
-                      <Zap size={18} fill="currentColor" className="text-yellow-300 drop-shadow-md" /> 
-                      {walletBalance.sats.toLocaleString()} {t.availableSats || "sats available"}
-                    </p>
-                  </>
-                )}
-              </div>
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => navigate(-1)} className={`md:hidden w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-out border shadow-sm ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400' : 'bg-white border-blue-100 text-blue-600'}`}>
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDarkMode ? 'text-blue-400/50' : 'text-blue-600/50'}`}>{t.lightningFast || "LIGHTNING FAST"}</p>
+            <h1 className="font-extrabold text-2xl md:text-3xl tracking-tight">{t.receivePayment || "Receive payment"}</h1>
+          </div>
+        </div>
 
-              <div className="flex justify-between items-center pt-6 border-t border-white/20 relative z-10">
-                <p className="text-sm flex items-center gap-2 font-medium opacity-90">
-                  <TrendingUp size={16} /> {t.thisWeek || "This week"}
-                </p>
-                <p className="text-base font-bold tracking-wide">+₦0</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+          
+          {/* LEFT COLUMN: Input & Controls */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {showTip && !isPaid && (
+              <div className={`p-4 md:p-5 rounded-2xl flex items-start gap-3 transition-all duration-500 border ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 text-slate-300' : 'bg-blue-50 border-blue-100 text-blue-900'}`}>
+                <Lightbulb size={20} className="mt-0.5 flex-shrink-0 text-blue-500" />
+                <p className="text-sm font-medium flex-1 leading-relaxed">{t.trackingTip || "Tip: Tracking debts digitally reduces lost payments."}</p>
+                <button onClick={() => setShowTip(false)} className="opacity-50 hover:opacity-100 transition-opacity p-1">
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+
+            {error && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-bold text-center">
+                {error}
+              </div>
+            )}
+
+            <div className={`p-8 md:p-12 rounded-[2rem] border transition-all duration-500 text-center ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30' : 'bg-white shadow-sm border-blue-100'}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-widest mb-6 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{t.enterAmount || "ENTER AMOUNT"}</p>
+              
+              <div className="flex justify-center items-center gap-2 mb-4">
+                <span className={`text-5xl md:text-6xl font-light ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>₦</span>
+                <input 
+                  type="number" 
+                  value={amount || ''} 
+                  onChange={(e) => {
+                    setAmount(Number(e.target.value));
+                    setInvoiceStr('');
+                    setIsPaid(false);
+                    if (pollingInterval.current) clearInterval(pollingInterval.current);
+                  }}
+                  placeholder="0"
+                  disabled={isGenerating || isPaid}
+                  className="bg-transparent border-none outline-none text-6xl md:text-7xl font-extrabold w-full max-w-[250px] text-center p-0 m-0"
+                />
+              </div>
+              
+              <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                <Zap size={14} fill="currentColor" />
+                = {calculatedSats.toLocaleString()} sats
               </div>
             </div>
 
-            {/* RESTORED BLUE QUICK ACTIONS */}
-            <div className="grid grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-              {[
-                { name: t.actionReceive || "Receive", icon: <ArrowDown size={24} />, path: '/receive' },
-                { name: t.actionSendSats || "Send Sats", icon: <Send size={24} />, path: '/send' },
-                { name: t.actionLogDebt || "Log Debt", icon: <FileText size={24} />, path: '/debts' },
-                { name: t.actionViewDebts || "View Debts", icon: <Users size={24} />, path: '/debts' },
-              ].map((action, i) => (
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 pt-2">
+              {quickAmounts.map((amt) => (
                 <button 
-                  key={i}
-                  onClick={() => navigate(action.path)}
-                  className={`flex flex-col items-center justify-center p-4 sm:p-6 rounded-[1.5rem] transition-all duration-500 ease-out hover:-translate-y-1 group border ${
+                  key={amt}
+                  disabled={isGenerating || isPaid}
+                  onClick={() => {
+                    setAmount(amount + amt);
+                    setInvoiceStr('');
+                    setIsPaid(false);
+                    if (pollingInterval.current) clearInterval(pollingInterval.current);
+                  }}
+                  className={`py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-full text-sm font-bold border transition-all duration-300 ease-out hover:-translate-y-0.5 ${
                     isDarkMode 
-                      ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-lg hover:shadow-black/50' 
-                      : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5'
+                      ? 'bg-[#0a0a0a] border-blue-900/30 text-blue-400 hover:bg-blue-900/20 hover:border-blue-500 disabled:opacity-50' 
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-blue-600 hover:bg-blue-50 shadow-sm disabled:opacity-50'
                   }`}
                 >
-                  <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mb-3 transition-transform duration-500 group-hover:scale-110 ${
-                    isDarkMode ? 'bg-blue-900/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white shadow-inner group-hover:shadow-blue-600/30'
-                  }`}>
-                    {action.icon}
-                  </div>
-                  <span className="text-[10px] sm:text-xs font-bold text-center opacity-80 whitespace-nowrap">{action.name}</span>
+                  +₦{amt.toLocaleString()}
                 </button>
               ))}
-            </div>
-
-            {/* RECENT ACTIVITY */}
-            <div className="pt-2">
-              <div className="flex justify-between items-end mb-6">
-                <h3 className="font-bold text-xl">{t.recentActivity || "Recent activity"}</h3>
-                
-                {/* FIXED REFRESH TOOLTIP */}
-                <HoverTooltip text={t.refreshData || "Refresh Data"}>
-                  <button 
-                    onClick={() => fetchDashboardData(true)} 
-                    className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline transition-all"
-                  >
-                    <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-                    {t.seeAll || "See all"}
-                  </button>
-                </HoverTooltip>
-              </div>
-              
-              <div className={`rounded-[2rem] p-3 transition-all duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border border-blue-900/30' : 'bg-white shadow-sm border border-blue-100'}`}>
-                {isLoadingData && !isRefreshing ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((skeleton) => (
-                      <div key={skeleton} className={`w-full flex items-center justify-between p-4 rounded-2xl animate-pulse ${isDarkMode ? 'bg-blue-900/10' : 'bg-blue-50/50'}`}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-slate-400/20"></div>
-                          <div className="space-y-2">
-                            <div className="h-4 w-24 bg-slate-400/20 rounded"></div>
-                            <div className="h-3 w-16 bg-slate-400/20 rounded"></div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : recentTransactions.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center py-12 px-4 rounded-2xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-zinc-800 bg-black/50' : 'border-blue-100 bg-slate-50'}`}>
-                    <div className={`w-16 h-16 mb-4 rounded-full flex items-center justify-center shadow-inner ${isDarkMode ? 'bg-blue-900/20 text-blue-400' : 'bg-blue-100 text-blue-600'}`}>
-                      <Zap size={28} fill="currentColor" className="opacity-50" />
-                    </div>
-                    <p className="font-bold text-lg mb-1">{t.noTransactionsYet || "No transactions yet"}</p>
-                    <p className="text-sm opacity-60 text-center max-w-[220px] mb-6">{t.walletReadyMessage || "Your Lightning wallet is ready. Receive your first payment!"}</p>
-                    <button 
-                      onClick={() => navigate('/receive')} 
-                      className="px-6 py-3 bg-blue-600 text-white text-sm font-bold rounded-full shadow-md shadow-blue-600/20 hover:bg-blue-700 active:scale-95 transition-all"
-                    >
-                      {t.receiveSatsBtn || "Receive Sats"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {recentTransactions.map((tx) => (
-                      <button key={tx.id} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-500 ease-out hover:scale-[1.01] ${isDarkMode ? 'hover:bg-blue-900/10' : 'hover:bg-blue-50/50 hover:shadow-sm'}`}>
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-500 ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                            {tx.type === 'send' ? (
-                              <Send size={20} className="text-red-500" />
-                            ) : tx.isSettle ? (
-                              <CheckCircle size={20} className="text-green-500" />
-                            ) : (
-                              <ArrowDownLeft size={20} className="text-blue-600" />
-                            )}
-                          </div>
-                          <div className="text-left">
-                            <p className="font-bold text-sm md:text-base">{tx.name}</p>
-                            <p className="text-xs opacity-50 font-medium mt-0.5 truncate max-w-[150px] sm:max-w-[200px]">{tx.desc}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-bold text-sm md:text-base ${tx.type === 'send' ? 'text-red-500' : 'text-green-500'}`}>
-                            {tx.amount}
-                          </p>
-                          <p className="text-xs opacity-50 font-medium mt-0.5">{tx.sats}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="lg:col-span-4 space-y-6 lg:space-y-8">
-            <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3">{t.todaysMarket || "TODAY'S MARKET"}</p>
-              <h4 className="font-extrabold text-xl md:text-2xl mb-3 leading-tight flex items-center gap-2">
-                {t.customersPayingFaster || "Customers are paying faster"} <Zap size={24} className="text-yellow-400 drop-shadow-sm" fill="currentColor" />
-              </h4>
-              <p className="text-sm opacity-70 leading-relaxed font-medium">
-                {t.settlementMessage || "Your average settlement time this week is under 3 seconds. Keep it going,"} {userFirstName ? `${userFirstName}.` : ''}
-              </p>
-            </div>
-
-            <div className={`p-6 md:p-8 rounded-[2rem] border transition-all duration-500 ease-out hover:shadow-xl hover:-translate-y-1 flex flex-col justify-center ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30 hover:border-blue-700/50 hover:shadow-black/50' : 'bg-white border-blue-100 hover:border-blue-200 hover:shadow-blue-900/5'}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <Smartphone size={20} className="text-blue-500 opacity-80" />
-                <p className="text-[10px] font-bold text-blue-500 opacity-80 uppercase tracking-widest">{t.ussdCodeLabel || "USSD CODE"}</p>
-              </div>
-              <h3 className="text-4xl md:text-5xl font-extrabold text-blue-600 mb-4 tracking-wider">
-                *384*7287#
-              </h3>
-              <p className="text-sm opacity-70 mb-8 font-medium leading-relaxed">{t.dialFromAnyPhone || "Dial from any phone — no internet needed."}</p>
               <button 
-                onClick={() => navigate('/ussd')}
-                className={`w-full py-4 rounded-full font-bold text-sm transition-all duration-500 ease-out hover:scale-[1.02] active:scale-95 ${
-                  isDarkMode 
-                    ? 'border border-blue-800 bg-blue-900/20 hover:bg-blue-600 text-blue-400 hover:text-white' 
-                    : 'border border-blue-200 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white'
-                }`}
+                disabled={isGenerating}
+                onClick={handleClear}
+                className={`py-3 sm:px-6 sm:py-3 rounded-xl sm:rounded-full text-sm font-bold border transition-all duration-300 ease-out hover:-translate-y-0.5 ${isDarkMode ? 'bg-[#0a0a0a] border-red-900/30 text-red-400 hover:bg-red-900/20' : 'bg-white border-slate-200 text-red-500 hover:bg-red-50 hover:border-red-200 shadow-sm'}`}
               >
-                {t.openUssdEmulator || "Open USSD emulator"}
+                Clear
+              </button>
+            </div>
+
+            <div className="pt-4 md:hidden">
+              <button 
+                onClick={handleGenerateInvoice}
+                disabled={amount === 0 || isGenerating || !!invoiceStr}
+                className="w-full py-4 rounded-full bg-blue-600 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white font-bold text-lg shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition-all active:scale-95 flex justify-center items-center gap-2"
+              >
+                {isGenerating ? (
+                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <><Zap size={20} fill="currentColor" /> {invoiceStr ? "Invoice Generated" : (t.generateInvoice || "Generate Invoice")}</>
+                )}
               </button>
             </div>
           </div>
-          
+
+          {/* RIGHT COLUMN: Desktop Invoice Preview Card */}
+          <div className="hidden lg:block lg:col-span-5">
+            <div className={`sticky top-32 p-8 rounded-[2rem] border transition-all duration-500 flex flex-col items-center text-center ${isPaid ? (isDarkMode ? 'bg-green-900/20 border-green-500/50' : 'bg-green-50 border-green-200') : (isDarkMode ? 'bg-gradient-to-b from-[#0a0a0a] to-[#050505] border-blue-900/30 shadow-2xl shadow-black' : 'bg-white border-blue-100 shadow-xl shadow-blue-900/5')}`}>
+              
+              <div className="w-full flex justify-between items-center mb-10 opacity-50">
+                <Maximize size={20} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{isPaid ? 'Payment Complete' : 'Invoice Preview'}</span>
+                <Maximize size={20} />
+              </div>
+
+              {/* Success State vs QR State */}
+              <div className={`w-full max-w-[280px] min-h-[256px] rounded-3xl flex items-center justify-center mb-8 border-2 border-dashed p-4 transition-all duration-500 ${isPaid ? 'border-green-400 bg-white dark:bg-black scale-105' : invoiceStr ? (isDarkMode ? 'border-green-500/50 bg-green-900/10' : 'border-green-400 bg-green-50') : amount > 0 ? (isDarkMode ? 'border-blue-500/50 bg-blue-900/10' : 'border-blue-400 bg-blue-50') : (isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50')}`}>
+                
+                {isPaid ? (
+                  <div className="flex flex-col items-center animate-in zoom-in duration-500">
+                    <div className="w-24 h-24 bg-green-100 text-green-500 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                      <Check size={48} strokeWidth={3} />
+                    </div>
+                    <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">Paid!</h3>
+                    <p className="text-sm opacity-60 mt-2">Redirecting...</p>
+                  </div>
+                ) : invoiceStr ? (
+                  <div className="w-full flex flex-col items-center animate-in fade-in">
+                    <div className="p-3 bg-white rounded-xl shadow-sm mb-4">
+                      <QRCodeSVG 
+                        value={`lightning:${invoiceStr}`} 
+                        size={160} 
+                        level={"M"}
+                        includeMargin={true}
+                        className="rounded-lg"
+                      />                  
+                    </div>
+                    <div className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-colors duration-500 ${isDarkMode ? 'bg-black border-slate-800' : 'bg-slate-100 border-slate-200'}`}>                      
+                      <p className="text-xs truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
+                      <button onClick={handleCopy} className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 transition-colors">
+                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                ) : amount > 0 ? (
+                  <div className="text-center space-y-3">
+                    <Zap size={48} className="mx-auto text-blue-500 animate-pulse" fill="currentColor" />
+                    <p className="text-sm font-bold text-blue-500">Ready to Generate</p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium opacity-40 px-8">Enter an amount to generate Lightning Invoice</p>
+                )}
+              </div>
+
+              {!isPaid && (
+                <>
+                  <div className="space-y-2 mb-10 w-full px-6">
+                    <div className="flex justify-between items-end border-b border-dashed pb-3 opacity-70 border-inherit">
+                      <span className="text-sm font-medium">Total Naira</span>
+                      <span className="font-bold text-lg">₦{amount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-end pt-3 text-blue-500">
+                      <span className="text-sm font-bold">Total Sats</span>
+                      <span className="font-extrabold text-xl">{calculatedSats.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleGenerateInvoice}
+                    disabled={amount === 0 || isGenerating || !!invoiceStr}
+                    className="w-full py-5 rounded-full bg-blue-600 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none text-white font-bold text-lg shadow-xl shadow-blue-600/30 hover:bg-blue-700 hover:-translate-y-1 transition-all flex justify-center items-center gap-2"
+                  >
+                    {isGenerating ? (
+                       <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : invoiceStr ? (
+                       <><Lightbulb size={20} /> Listening for payment...</>
+                    ) : (
+                       <><Zap size={20} fill={amount > 0 ? "currentColor" : "none"} /> {t.generateInvoice || "Generate Invoice"}</>
+                    )}
+                  </button>
+                  <p className="text-xs opacity-50 font-medium mt-6">{t.customerScans || "Customer scans • You get paid instantly in naira"}</p>
+                </>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <div className="md:hidden">
-        <BottomNav />
-      </div>
+      {/* Mobile Generated Invoice Overlay */}
+      {invoiceStr && !isPaid && (
+        <div className="md:hidden fixed inset-x-0 bottom-0 top-20 bg-white dark:bg-black z-50 p-6 flex flex-col items-center justify-center animate-in slide-in-from-bottom">
+           <button onClick={handleClear} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
+             <X size={24} />
+           </button>
+           <h2 className="text-2xl font-bold mb-8">Scan to Pay</h2>
+           <div className="p-4 bg-white rounded-2xl shadow-xl border border-slate-100 mb-8 flex justify-center items-center relative overflow-hidden">
+             {/* Scanning radar sweep animation overlay */}
+             <div className="absolute inset-0 bg-gradient-to-b from-blue-500/0 via-blue-500/20 to-blue-500/0 h-1/2 w-full animate-[ping_3s_ease-in-out_infinite] pointer-events-none" />
+             <QRCodeSVG 
+               value={`lightning:${invoiceStr}`} 
+               size={220} 
+               level={"M"}
+               includeMargin={true}
+               className="rounded-lg relative z-10"
+             />
+           </div>
+           <div className="w-full max-w-sm flex items-center gap-2 bg-slate-50 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 mb-8">
+              <p className="text-sm truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
+              <button onClick={handleCopy} className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 transition-colors">
+                {copied ? <Check size={20} /> : <Copy size={20} />}
+              </button>
+            </div>
+            <p className="text-xl font-bold">₦{amount.toLocaleString()}</p>
+            <p className="text-blue-500 font-medium mt-1">Listening for {calculatedSats.toLocaleString()} sats...</p>
+        </div>
+      )}
+
+      {/* Mobile Success Overlay */}
+      {isPaid && (
+        <div className="md:hidden fixed inset-0 bg-white dark:bg-black z-50 flex flex-col items-center justify-center animate-in zoom-in duration-300">
+           <div className="w-32 h-32 bg-green-100 text-green-500 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6">
+             <Check size={64} strokeWidth={3} />
+           </div>
+           <h2 className="text-4xl font-extrabold text-green-600 dark:text-green-400 mb-2">Paid!</h2>
+           <p className="text-lg opacity-60">₦{amount.toLocaleString()} added to wallet</p>
+        </div>
+      )}
+
+      <div className="md:hidden"><BottomNav /></div>
     </div>
   );
 }
