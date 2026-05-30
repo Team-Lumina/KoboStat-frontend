@@ -55,6 +55,9 @@ export default function Dashboard({ user }) {
       return;
     }
 
+    // DEBUG: See exactly what phone number the frontend is using
+    console.log("Fetching live data for:", activePhone);
+
     if (!silentRefresh) setIsLoadingData(true);
     else setIsRefreshing(true);
 
@@ -68,6 +71,9 @@ export default function Dashboard({ user }) {
       }
 
       const txData = await getTransactionHistory(activePhone);
+      
+      // DEBUG: See exactly what the backend is sending back
+      console.log("Backend returned TX Data:", txData);
       
       if (Array.isArray(txData) && txData.length > 0) {
         const mappedTxs = txData.slice(0, 4).map(tx => ({
