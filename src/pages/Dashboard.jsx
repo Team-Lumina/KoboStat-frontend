@@ -50,7 +50,7 @@ export default function Dashboard({ user }) {
   // DYNAMIC NAME: Get user's first name, or leave empty if not available
   const userFirstName = user?.name ? user.name.split(' ')[0] : '';
 
-const fetchDashboardData = async (silentRefresh = false) => {
+  const fetchDashboardData = async (silentRefresh = false) => {
     if (!activePhone) {
       setIsLoadingData(false);
       return;
@@ -87,32 +87,6 @@ const fetchDashboardData = async (silentRefresh = false) => {
         }];
       }
 
-      // 3. Process Transactions for the UI
-      if (Array.isArray(txArray) && txArray.length > 0) {
-        const mappedTxs = txArray.slice(0, 4).map(tx => ({
-          id: tx.id || Math.random().toString(),
-          name: tx.counterparty || (tx.type === 'receive' ? (t.paymentReceived || 'Payment Received') : (t.paymentSent || 'Payment Sent')),
-          desc: tx.description || (tx.type === 'receive' ? (t.lightningDeposit || 'Lightning Deposit') : (t.lightningPayment || 'Lightning Payment')),
-          amount: `${tx.type === 'send' ? '-' : '+'}₦${(tx.amount_ngn || 0).toLocaleString()}`,
-          sats: `${(tx.amount_sats || 0).toLocaleString()} sats`,
-          isSettle: tx.is_settled !== undefined ? tx.is_settled : true,
-          type: tx.type || 'receive'
-        }));
-        setRecentTransactions(mappedTxs);
-      } else {
-        setRecentTransactions([]);
-      }
-    } catch (error) {
-      console.error("Failed to load live data:", error);
-      if (!silentRefresh) {
-        setWalletBalance({ ngn: 0, sats: 0 });
-        setRecentTransactions([]);
-      }
-    } finally {
-      setIsLoadingData(false);
-      setIsRefreshing(false);
-    }
-  };
       // 3. Process Transactions for the UI with MULTILINGUAL fallbacks
       if (Array.isArray(txArray) && txArray.length > 0) {
         const mappedTxs = txArray.slice(0, 4).map(tx => ({
