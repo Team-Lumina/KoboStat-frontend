@@ -36,18 +36,39 @@ export default function Receive({ user }) {
   const [isPaid, setIsPaid] = useState(false);
   const pollingInterval = useRef(null);
 
+  // Live Exchange Rate State (Default to ~1.02 sats per NGN as fallback)
+  const [exchangeRate, setExchangeRate] = useState(1.02);
+
   const activePhone = user?.phone || "08012345678";
 
   // Trigger entrance animation & grab starting balance
   useEffect(() => {
     setIsLoaded(true);
+    
     const fetchStartingBalance = async () => {
       const data = await getWalletBalance(activePhone);
       if (data && data.balance !== undefined) {
         setInitialBalance(data.balance);
       }
     };
+    
+    // 🔥 THE FIX: Fetch Live BTC/NGN Rate from CoinGecko
+    const fetchLiveRate = async () => {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=ngn');
+        const data = await res.json();
+        if (data && data.bitcoin && data.bitcoin.ngn) {
+          // 1 BTC = 100,000,000 sats
+          const satsPerNgn = 100000000 / data.bitcoin.ngn;
+          setExchangeRate(satsPerNgn);
+        }
+      } catch (err) {
+        console.error("Failed to fetch live BTC exchange rate, using fallback.", err);
+      }
+    };
+
     fetchStartingBalance();
+    fetchLiveRate();
     
     // Cleanup interval on unmount
     return () => {
@@ -122,6 +143,9 @@ export default function Receive({ user }) {
     if (pollingInterval.current) clearInterval(pollingInterval.current);
   };
 
+  // Helper to calculate exact sats dynamically
+  const calculatedSats = Math.round(amount * exchangeRate);
+
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 md:pt-6 transition-all duration-1000 transform ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}>
@@ -181,7 +205,7 @@ export default function Receive({ user }) {
               
               <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium border ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
                 <Zap size={14} fill="currentColor" />
-                = {(amount * 0.42).toFixed(0)} sats
+                = {calculatedSats.toLocaleString()} sats
               </div>
             </div>
 
@@ -259,7 +283,7 @@ export default function Receive({ user }) {
                         level={"M"}
                         includeMargin={true}
                         className="rounded-lg"
-                      />                    
+                      />                  
                     </div>
                     <div className={`w-full flex items-center gap-2 p-2 rounded-lg border transition-colors duration-500 ${isDarkMode ? 'bg-black border-slate-800' : 'bg-slate-100 border-slate-200'}`}>                      
                       <p className="text-xs truncate font-mono opacity-70 w-full text-left">{invoiceStr}</p>
@@ -287,7 +311,7 @@ export default function Receive({ user }) {
                     </div>
                     <div className="flex justify-between items-end pt-3 text-blue-500">
                       <span className="text-sm font-bold">Total Sats</span>
-                      <span className="font-extrabold text-xl">{(amount * 0.42).toFixed(0)}</span>
+                      <span className="font-extrabold text-xl">{calculatedSats.toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -338,7 +362,7 @@ export default function Receive({ user }) {
               </button>
             </div>
             <p className="text-xl font-bold">₦{amount.toLocaleString()}</p>
-            <p className="text-blue-500 font-medium mt-1">Listening for {(amount * 0.42).toFixed(0)} sats...</p>
+            <p className="text-blue-500 font-medium mt-1">Listening for {calculatedSats.toLocaleString()} sats...</p>
         </div>
       )}
 
