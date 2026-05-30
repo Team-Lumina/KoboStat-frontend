@@ -4,23 +4,20 @@ import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
 import Tooltip from '../components/Tooltip';
 import BottomNav from '../components/BottomNav';
-import GlobalHeader from '../components/GlobalHeader'; // Using the external dynamic header
-import { listDebts, createDebtRecord, settleDebt } from '../services/api'; // Live API endpoints
+import GlobalHeader from '../components/GlobalHeader'; 
+import { listDebts, createDebtRecord, settleDebt } from '../services/api'; 
 import { 
-  FiGlobe as Globe, 
   FiSearch as Search, 
   FiPhone as Phone, 
   FiCheckCircle as CheckCircle2, 
   FiBell as Bell, 
   FiPlus as Plus, 
   FiArrowLeft as ArrowLeft, 
-  FiInfo as Lightbulb, 
   FiUser as User, 
   FiUsers as Users, 
   FiCreditCard as Wallet, 
   FiCalendar as Calendar, 
   FiFileText as FileText, 
-  FiX as X,
   FiAlertCircle as AlertCircle
 } from 'react-icons/fi';
 
@@ -45,15 +42,21 @@ export default function Debts({ user }) {
     name: '', phone: '', amount: '', due: '', notes: ''
   });
 
-  const activePhone = user?.phone || "08012345678";
+  // 🔥 FIX: No mock data. Use real user phone or local storage fallback.
+  const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || null;
 
   // Trigger entrance animation & fetch data on mount
   useEffect(() => {
     setIsLoaded(true);
     fetchLiveDebts();
-  }, [user]);
+  }, [user, activePhone]);
 
   const fetchLiveDebts = async () => {
+    if (!activePhone) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const data = await listDebts(activePhone);
@@ -100,20 +103,39 @@ export default function Debts({ user }) {
     .filter(d => !d.is_settled)
     .reduce((sum, d) => sum + Number(d.amount_ngn || 0), 0);
 
+  // 🔥 FIX: OPTIMISTIC UI REAL-TIME SETTLEMENT
   const handleSettle = async (id) => {
+    // Instantly update the UI so it feels incredibly fast to the user
+    setDebts(prevDebts => prevDebts.map(d => 
+      d.id === id ? { ...d, is_settled: true } : d
+    ));
+
     try {
+      // Process it quietly in the background
       await settleDebt(id, activePhone);
-      await fetchLiveDebts(); // Refresh ledger
     } catch (err) {
       console.error("Failed to settle debt", err);
-      alert("Failed to settle debt. Please try again.");
+      // If the backend fails, fetch the real list to revert the UI back
+      await fetchLiveDebts(); 
+      alert(t.settleError || "Failed to settle debt. Please try again.");
     }
+  };
+
+  // 🔥 FIX: REAL-TIME SMS REMINDER INTEGRATION
+  const handleRemind = (debt) => {
+    const amount = debt.amount_ngn?.toLocaleString() || "0";
+    const customerName = debt.description ? debt.description.split(' - ')[0] : (t.customer || 'Customer');
+    
+    const message = `Hello ${customerName}, this is a polite reminder from KoboSat regarding your pending balance of ₦${amount}. Please let us know when you can settle it. Thank you!`;
+
+    // Triggers the phone's native SMS app
+    window.open(`sms:${debt.debtor_phone}?body=${encodeURIComponent(message)}`, '_self');
   };
 
   const handleSaveDebt = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.amount) {
-      setError("Name and Amount are required.");
+      setError(t.nameAmountRequired || "Name and Amount are required.");
       return;
     }
 
@@ -139,10 +161,10 @@ export default function Debts({ user }) {
         setFormData({ name: '', phone: '', amount: '', due: '', notes: '' });
         await fetchLiveDebts(); // Refresh ledger
       } else {
-        setError("Failed to save debt. Please try again.");
+        setError(t.saveDebtError || "Failed to save debt. Please try again.");
       }
     } catch (err) {
-      setError("Network error occurred.");
+      setError(t.networkError || "Network error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -178,9 +200,9 @@ export default function Debts({ user }) {
 
             <form className="space-y-5" onSubmit={handleSaveDebt}>
               {[
-                { id: 'name', icon: User, label: t.customerName || "CUSTOMER NAME", placeholder: "e.g. Mama Nkechi", type: "text", required: true },
+                { id: 'name', icon: User, label: t.customerName || "CUSTOMER NAME", placeholder: t.customerNamePlaceholder || "e.g. Mama Nkechi", type: "text", required: true },
                 { id: 'phone', icon: Phone, label: t.phoneNumber || "PHONE NUMBER", placeholder: "0803 123 4567", type: "tel", required: false },
-                { id: 'amount', icon: Wallet, label: t.amountOwed || "AMOUNT OWED (₦)", placeholder: "0", type: "text", required: true }, // Changed to text to allow formatting, but stripped in submit
+                { id: 'amount', icon: Wallet, label: t.amountOwed || "AMOUNT OWED (₦)", placeholder: "0", type: "text", required: true }, 
                 { id: 'due', icon: Calendar, label: t.dueDate || "DUE DATE", placeholder: "mm/dd/yyyy", type: "date", required: false },
                 { id: 'notes', icon: FileText, label: t.notesOptional || "NOTES (OPTIONAL)", placeholder: t.whatDidTheyBuy || "What did they buy?", type: "text", required: false },
               ].map((field) => (
@@ -294,7 +316,7 @@ export default function Debts({ user }) {
               [1, 2, 3].map(i => <div key={i} className="w-full h-24 rounded-[1.5rem] bg-slate-200 dark:bg-zinc-800 animate-pulse"></div>)
             ) : filteredDebts.length === 0 ? (
               <div className={`text-center py-16 rounded-[2rem] border border-dashed transition-colors duration-700 ${isDarkMode ? 'bg-[#0a0a0a] border-blue-900/30' : 'bg-white border-blue-200'}`}>
-                <p className="text-sm font-medium opacity-50">No debts found in this category.</p>
+                <p className="text-sm font-medium opacity-50">{t.noDebtsFound || "No debts found in this category."}</p>
               </div>
             ) : (
               filteredDebts.map((debt) => (
@@ -306,21 +328,21 @@ export default function Debts({ user }) {
                       </div>
                       <div>
                         <h3 className="font-bold text-base truncate max-w-[200px] sm:max-w-[300px]">
-                          {debt.description ? debt.description.split(' - ')[0] : 'Unknown Customer'}
+                          {debt.description ? debt.description.split(' - ')[0] : (t.unknownCustomer || 'Unknown Customer')}
                         </h3>
                         <span className={`inline-block px-3 py-1 rounded-full text-[9px] font-bold mt-1 tracking-wider uppercase ${
                           debt.is_settled 
                             ? (isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700')
                             : (isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600')
                         }`}>
-                          {debt.is_settled ? 'SETTLED' : 'PENDING'}
+                          {debt.is_settled ? (t.settled || 'SETTLED') : (t.pending || 'PENDING')}
                         </span>
                       </div>
                     </div>
                     <div className="text-left sm:text-right pl-16 sm:pl-0">
                       <p className="font-bold text-lg">₦{debt.amount_ngn?.toLocaleString()}</p>
                       <p className="text-[11px] opacity-60 mt-0.5 font-medium">
-                        {t.due || "Added on"} {debt.created_at ? new Date(debt.created_at).toLocaleDateString() : 'Just now'}
+                        {t.addedOn || "Added on"} {debt.created_at ? new Date(debt.created_at).toLocaleDateString() : (t.justNow || 'Just now')}
                       </p>
                     </div>
                   </div>
@@ -341,13 +363,16 @@ export default function Debts({ user }) {
                         >
                           <CheckCircle2 size={16} /> {t.settle || "Settle"}
                         </button>
-                        <button className={`flex-1 sm:flex-none sm:px-8 py-3 rounded-xl text-xs font-bold flex justify-center items-center gap-2 border transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'}`}>
+                        <button 
+                          onClick={() => handleRemind(debt)}
+                          className={`flex-1 sm:flex-none sm:px-8 py-3 rounded-xl text-xs font-bold flex justify-center items-center gap-2 border transition-all duration-500 ease-out hover:-translate-y-0.5 hover:shadow-md ${isDarkMode ? 'bg-black border-blue-900/30 text-blue-400 hover:bg-blue-900/20' : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'}`}
+                        >
                           <Bell size={16} /> {t.remind || "Remind"}
                         </button>
                       </>
                     ) : (
                       <div className={`w-full sm:w-auto sm:px-8 py-3 rounded-xl text-xs font-bold flex justify-center items-center gap-2 border transition-colors duration-500 ${isDarkMode ? 'bg-black border-blue-900/20 text-slate-500' : 'bg-white border-slate-100 text-slate-400'}`}>
-                        <CheckCircle2 size={16} /> Settled
+                        <CheckCircle2 size={16} /> {t.settled || "Settled"}
                       </div>
                     )}
                   </div>
@@ -357,7 +382,7 @@ export default function Debts({ user }) {
           </div>
         </div>
 
-        <Tooltip text="Log new debt">
+        <Tooltip text={t.logNewDebt || "Log new debt"}>
           <button 
             onClick={() => setIsLoggingDebt(true)}
             className={`fixed bottom-24 md:bottom-10 right-6 sm:right-10 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-600/40 hover:bg-blue-700 hover:shadow-blue-600/60 transition-all duration-500 ease-out hover:-translate-y-1 z-30 transform ${isLoaded && !isLoggingDebt ? 'scale-100' : 'scale-0'}`}
