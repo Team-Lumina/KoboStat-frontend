@@ -3,7 +3,7 @@
 // ========================================================
 const BASE_URL = 'https://kobosat-backend.onrender.com';
 
-// 🚨 SET TO true FOR A BULLETPROOF KILL-SWITCH ON DEMO SUNDAY.
+// SET TO true FOR A BULLETPROOF KILL-SWITCH ON DEMO SUNDAY.
 // If the Breez LSP fails, the internet drops, or CORS blocks you,
 // flip this to true to run a flawless local simulation.
 const DEMO_MODE = false;
@@ -19,7 +19,7 @@ const initDemoStorage = (phone) => {
 };
 
 // --------------------------------------------------------
-// 1. HEALTHCHECK
+// HEALTHCHECK
 // --------------------------------------------------------
 export const checkApiHealth = async () => {
   if (DEMO_MODE) return true;
@@ -33,7 +33,7 @@ export const checkApiHealth = async () => {
 };
 
 // --------------------------------------------------------
-// 2. TRADERS MANAGEMENT (Auth)
+// TRADERS MANAGEMENT (Auth)
 // --------------------------------------------------------
 export const registerTrader = async (phoneNumber, language = 'en') => {
   if (DEMO_MODE) {
@@ -70,7 +70,7 @@ export const getTraderProfile = async (phone) => {
 };
 
 // --------------------------------------------------------
-// 3. LIGHTNING WALLET & TRANSACTIONS
+// LIGHTNING WALLET & TRANSACTIONS
 // --------------------------------------------------------
 export const getWalletBalance = async (phone) => {
   if (DEMO_MODE) {
@@ -133,7 +133,7 @@ export const generateInvoice = async (phoneNumber, amountNgn) => {
 };
 
 // --------------------------------------------------------
-// 4. DEBT TRACKER LEDGER
+// DEBT TRACKER LEDGER
 // --------------------------------------------------------
 export const createDebtRecord = async (creditorPhone, debtorPhone, amountNgn, description, dueDate) => {
   if (DEMO_MODE) return { id: "demo-debt", amount_ngn: amountNgn, description };
@@ -184,7 +184,7 @@ export const settleDebt = async (debtId, phone) => {
 };
 
 // --------------------------------------------------------
-// 5. USSD SIMULATOR ENGINE
+//  USSD SIMULATOR ENGINE
 // --------------------------------------------------------
 export const sendUssdCommand = async (phone, ussdText) => {
   if (DEMO_MODE) {
@@ -233,25 +233,43 @@ export const payInvoice = async (phone, invoiceString) => {
   }
   
   try {
-    // 🔥 UPDATED ENDPOINT URL HERE 🔥
-    const response = await fetch(`${BASE_URL}/api/v1/lightning/pay`, {
+    //  STEP 1: PREPARE THE PAYMENT 
+    // This tells the Breez SDK to calculate the route and exact fees
+    const prepareRes = await fetch(`${BASE_URL}/api/v1/lightning/prepare-send`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        phone: phone, 
+        phone_number: phone, 
         invoice: invoiceString 
       }),
     });
 
-    const data = await response.json();
+    const prepareData = await prepareRes.json();
     
-    if (!response.ok) {
-      throw new Error(data.message || data.error || 'Payment failed');
+    if (!prepareRes.ok) {
+      throw new Error(prepareData.detail || prepareData.message || 'Failed to prepare payment route');
+    }
+
+    // 🔥 STEP 2: EXECUTE THE PAYMENT 🔥
+    // Pass the prepared data/id back to the server to finalize the transaction
+    const sendRes = await fetch(`${BASE_URL}/api/v1/lightning/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        phone_number: phone, 
+        invoice: invoiceString,
+        // Depending on Busayo's schema, pass the preparation ID/req_id if required
+        req_id: prepareData.id || prepareData.req_id 
+      }),
+    });
+
+    const sendData = await sendRes.json();
+    
+    if (!sendRes.ok) {
+      throw new Error(sendData.detail || sendData.message || 'Payment failed to execute');
     }
     
-    return data;
+    return sendData;
   } catch (error) {
     console.error('Error paying invoice:', error);
     return { error: error.message || "Failed to connect to the server" };

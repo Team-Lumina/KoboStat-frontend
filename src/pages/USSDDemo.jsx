@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { translations } from '../locales/translations';
-import BottomNav from '../components/BottomNav';
 import GlobalHeader from '../components/GlobalHeader';
-import { sendUssdCommand } from '../services/api'; 
 import { 
   FiArrowLeft as ArrowLeft,
   FiDelete as Delete, 
@@ -18,20 +16,21 @@ export default function USSDDemo({ user }) {
   const location = useLocation();
   const { isDarkMode, language } = useTheme();
   const t = translations[language] || translations.en;
-  const [ussdHistory, setUssdHistory] = useState('');
   
   const [isLoaded, setIsLoaded] = useState(false);
   
   // Advanced Emulator State
   const [ussdInput, setUssdInput] = useState('');
+  const [ussdHistory, setUssdHistory] = useState('');
   const [sessionState, setSessionState] = useState('dialer'); // 'dialer', 'loading', 'menu'
   
   // Live API States
   const [ussdResponse, setUssdResponse] = useState('');
   const [isSessionEnded, setIsSessionEnded] = useState(false);
-  
-  const activePhone = user?.phone || "08012345678";
 
+  // MOCK DATABASE STATE (This makes the math work in real-time)
+  const [mockBalance, setMockBalance] = useState(113791);
+  
   useEffect(() => {
     setIsLoaded(true);
   }, []);
@@ -41,10 +40,92 @@ export default function USSDDemo({ user }) {
   const handleClear = () => setUssdInput('');
   const handleDelete = () => setUssdInput(prev => prev.slice(0, -1));
 
+  // ========================================================================
+  // THE FAKE BACKEND: Mimics Africa's Talking exactly
+  // ========================================================================
+  const mockUssdBackend = (cumulativeText) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 1. Clean the string just like the real API (remove the initial code)
+        let cleanText = cumulativeText.replace('*384*7287#', '');
+        if (cleanText.startsWith('*')) cleanText = cleanText.substring(1);
+        
+        // 2. Split the history into an array (e.g., "1*2*5000" -> ['1', '2', '5000'])
+        const parts = cleanText === '' ? [] : cleanText.split('*');
+        
+        // MAIN MENU (No inputs yet)
+        if (parts.length === 0) {
+           resolve("CON Welcome to KoboSats\n1. Check Balance\n2. Pay Invoice (Send)\n3. Receive Sats");
+           return;
+        }
+        
+        // OPTION 1: Check Balance
+        if (parts[0] === '1') {
+           resolve(`END Your KoboSats balance is:\n₦${mockBalance.toLocaleString()}`);
+           return;
+        }
+        
+        // OPTION 2: Pay Invoice (Send)
+        if (parts[0] === '2') {
+           if (parts.length === 1) {
+              resolve("CON 1. Pay KoboSat Number\n2. Pay External (Short ID)");
+              return;
+           }
+           if (parts[1] === '1' || parts[1] === '2') {
+              if (parts.length === 2) {
+                 resolve(parts[1] === '1' ? "CON Enter receiver's phone number:" : "CON Enter Merchant Short ID (e.g. 55892):");
+                 return;
+              }
+              if (parts.length === 3) {
+                 resolve("CON Enter amount in Naira to send:");
+                 return;
+              }
+              if (parts.length === 4) {
+                 resolve(`CON Send ₦${parts[3]}?\nEnter 4-digit PIN to confirm:`);
+                 return;
+              }
+              if (parts.length === 5) {
+                 // Verify PIN and deduct from state
+                 if (parts[4] === '1234') {
+                    setMockBalance(prev => prev - parseInt(parts[3]));
+                    resolve(`END Success! ⚡️\n₦${parts[3]} has been routed via the Lightning Network.`);
+                 } else {
+                    resolve("END Incorrect PIN. Transaction failed.");
+                 }
+                 return;
+              }
+           }
+        }
+        
+        // OPTION 3: Receive Sats
+        if (parts[0] === '3') {
+           if (parts.length === 1) {
+              resolve("CON Enter amount in Naira to receive:");
+              return;
+           }
+           if (parts.length === 2) {
+              resolve(`CON Generate invoice for ₦${parts[1]}?\n1. Confirm\n2. Cancel`);
+              return;
+           }
+           if (parts.length === 3) {
+              if (parts[2] === '1') {
+                 // Add to mock state
+                 setMockBalance(prev => prev + parseInt(parts[1]));
+                 resolve(`END Invoice Generated!\nAsk customer to dial:\n*384*7287*99#\n\n(Simulated: ₦${parts[1]} added to wallet)`);
+              } else {
+                 resolve("END Transaction Cancelled.");
+              }
+              return;
+           }
+        }
+
+        resolve("END Invalid Option selected.");
+      }, 1000); // 1-second network delay for realism
+    });
+  };
+
   // Process the raw string from the backend
-  const processUssdResponse = (rawResponse) => {
-    const text = typeof rawResponse === 'string' ? rawResponse : (rawResponse.message || JSON.stringify(rawResponse));
-    
+  const processUssdResponse = (text) => {
     setSessionState('menu');
     setUssdInput('');
 
@@ -60,44 +141,45 @@ export default function USSDDemo({ user }) {
     }
   };
 
-const handleDial = async () => {
-    if (!ussdInput) return;
+  const handleDial = async () => {
+    if (ussdInput !== '*384*7287#') {
+      alert("Invalid USSD code. Try *384*7287#");
+      return;
+    }
     setSessionState('loading');
-    setUssdHistory(''); // <-- Start fresh history
+    setUssdHistory('*384*7287#'); // Initialize history
     
     try {
-      const res = await sendUssdCommand(activePhone, ussdInput);
+      const res = await mockUssdBackend('*384*7287#');
       processUssdResponse(res);
     } catch (error) {
-      processUssdResponse("END Connection Error. Please try again.");
+      processUssdResponse("END Connection Error.");
     }
   };
 
   // Interactive USSD Menu Logic
-const handleMenuSubmit = async () => {
+  const handleMenuSubmit = async () => {
     if (!ussdInput && !isSessionEnded) return;
     setSessionState('loading');
     
     try {
-      // THE MAGIC SAUCE: Append the new input to the history with a '*'
+      // Append the new input to the history with a '*'
       const cumulativeText = ussdHistory ? `${ussdHistory}*${ussdInput}` : ussdInput;
-      
-      // Update our state so the next input builds on this one
       setUssdHistory(cumulativeText);
 
-      // Send the cumulative string to the backend! (e.g., "2*5000*08012345678")
-      const res = await sendUssdCommand(activePhone, cumulativeText);
+      // Send to the fake backend
+      const res = await mockUssdBackend(cumulativeText);
       processUssdResponse(res);
     } catch (error) {
-      processUssdResponse("END Connection Error. Please check your network.");
+      processUssdResponse("END Connection Error.");
     }
   };
 
-const cancelSession = () => {
+  const cancelSession = () => {
     setSessionState('dialer');
     setUssdResponse('');
     setUssdInput('');
-    setUssdHistory(''); // <-- Clear history here
+    setUssdHistory(''); 
     setIsSessionEnded(false);
   };
 
@@ -109,7 +191,7 @@ const cancelSession = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center min-h-[75vh]">
           
-          {/* LEFT COLUMN: Presentation Pitch (Desktop Only) */}
+          {/* LEFT COLUMN: Presentation Pitch */}
           <div className="hidden lg:flex lg:col-span-6 flex-col justify-center space-y-8 pr-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600/10 text-blue-600 border border-blue-600/20 w-fit">
               <WifiOff size={16} />
