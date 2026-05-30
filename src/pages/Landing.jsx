@@ -1,770 +1,495 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { translations } from '../locales/translations';
-import BottomNav from '../components/BottomNav';
-import GlobalHeader from '../components/GlobalHeader';
-import { getWalletBalance, getTransactionHistory } from '../services/api';
 import { motion } from 'framer-motion';
-import {
-  FiEye as Eye,
-  FiEyeOff as EyeOff,
-  FiZap as Zap,
-  FiArrowDown as ArrowDown,
-  FiSend as Send,
-  FiFileText as FileText,
-  FiUsers as Users,
-  FiArrowDownLeft as ArrowDownLeft,
-  FiTrendingUp as TrendingUp,
-  FiCheckCircle as CheckCircle,
-  FiSmartphone as Smartphone,
-  FiRefreshCw as RefreshCw,
-} from 'react-icons/fi';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-
-const C = {
-  blue:       '#1855F1',
-  blueLight:  '#EBF0FF',
-  blueXLight: '#F5F7FF',
-  ink:        '#0A0F1E',
-  ink2:       '#2D3555',
-  ink3:       '#6B7394',
-  white:      '#FFFFFF',
-  line:       '#E4E8F4',
-  green:      '#22C55E',
-  red:        '#EF4444',
-  amber:      '#FCD34D',
-  // Dark
-  darkBg:     '#060810',
-  darkCard:   '#0D1117',
-  darkBorder: '#1A2035',
-};
-
-// ─── Animation Variants ───────────────────────────────────────────────────────
+// ─── Animation Variants ──────────────────────────────────────────────────────
 
 const fadeUp = (delay = 0) => ({
-  hidden:  { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 60, damping: 18, delay } },
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring', stiffness: 60, damping: 18, delay },
+  },
 });
+
+const slideInLeft = (delay = 0) => ({
+  hidden: { opacity: 0, x: -20 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: 'easeOut', delay } },
+});
+
+const slideInRight = (delay = 0) => ({
+  hidden: { opacity: 0, x: 20 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: 'easeOut', delay } },
+});
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+const IconBolt = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+);
+
+const IconPhone = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M12 18h.01" /><path d="M9 7h6" />
+  </svg>
+);
+
+const IconShield = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const IconUsers = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const IconDollar = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
+const IconGlobe = ({ size = 20, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <line x1="2" y1="12" x2="22" y2="12" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
+const IconArrowRight = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M5 12h14M12 5l7 7-7 7" />
+  </svg>
+);
+
+const IconCheck = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
+const IconPlay = ({ size = 15, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="10" /><path d="M10 8l6 4-6 4V8z" fill="currentColor" />
+  </svg>
+);
+
+const IconReceive = ({ size = 14, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 2v20M2 12l10 10 10-10" />
+  </svg>
+);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function QuickAction({ action, isDarkMode, card, border, text, onClick }) {
-  const [hovered, setHovered] = useState(false);
+function Logo() {
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        justifyContent: 'center',
-        gap:            10,
-        padding:        '20px 12px',
-        borderRadius:   20,
-        background:     hovered ? (isDarkMode ? '#111827' : '#EBF0FF') : card,
-        border:         `1.5px solid ${hovered ? C.blue : border}`,
-        cursor:         'pointer',
-        transition:     'all 0.2s ease',
-        transform:      hovered ? 'translateY(-2px)' : 'none',
-        boxShadow:      hovered ? '0 8px 24px rgba(24,85,241,0.12)' : 'none',
-        fontFamily:     "'Sora', sans-serif",
-      }}
-    >
-      <div style={{
-        width:          48,
-        height:         48,
-        borderRadius:   '50%',
-        background:     hovered ? C.blue : (isDarkMode ? 'rgba(24,85,241,0.15)' : C.blueLight),
-        color:          hovered ? '#fff' : C.blue,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        transition:     'all 0.2s ease',
-        flexShrink:     0,
-      }}>
-        {action.icon}
+    <div className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-slate-900">
+      <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-white border border-slate-100">
+        <img src="/assets/white-bg.png" alt="KoboSat Logo" className="w-full h-full object-cover" />
       </div>
-      <span style={{
-        fontSize:    11,
-        fontWeight:  700,
-        color:       text,
-        letterSpacing: '0.2px',
-        whiteSpace:  'nowrap',
-      }}>
-        {action.name}
+      <span>
+        Kobo<span className="text-blue-600">Sat</span>
       </span>
-    </button>
+    </div>
   );
 }
 
-function TransactionRow({ tx, isDarkMode, text, muted, isLast }) {
-  const [hovered, setHovered] = useState(false);
-
-  const iconBg = tx.type === 'send'
-    ? (isDarkMode ? 'rgba(239,68,68,0.12)' : '#FEF2F2')
-    : tx.isSettle
-      ? (isDarkMode ? 'rgba(34,197,94,0.12)' : '#F0FDF4')
-      : (isDarkMode ? 'rgba(24,85,241,0.12)' : C.blueLight);
-
-  const icon = tx.type === 'send'
-    ? <Send   size={17} style={{ color: C.red }}   />
-    : tx.isSettle
-      ? <CheckCircle    size={17} style={{ color: C.green }} />
-      : <ArrowDownLeft  size={17} style={{ color: C.blue }}  />;
+function WalletCard() {
+  const actions = [
+    { icon: <IconReceive size={14} />, label: 'Receive' },
+    { icon: <IconBolt size={14} />, label: 'Send' },
+    { icon: <IconPhone size={14} />, label: 'USSD' },
+  ];
 
   return (
-    <button
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width:          '100%',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        padding:        '14px 16px',
-        borderRadius:   16,
-        background:     hovered ? (isDarkMode ? 'rgba(24,85,241,0.06)' : C.blueXLight) : 'transparent',
-        border:         'none',
-        cursor:         'pointer',
-        textAlign:      'left',
-        transition:     'background 0.15s',
-        fontFamily:     "'Sora', sans-serif",
-        borderBottom:   !isLast ? `1px solid ${isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}` : 'none',
-      }}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.92, rotate: -1 }}
+      animate={{ opacity: 1, scale: 1, rotate: 0 }}
+      transition={{ type: 'spring', stiffness: 50, damping: 16, delay: 0.3 }}
+      className="relative w-full max-w-[300px] mx-auto lg:mx-0"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width:          44,
-          height:         44,
-          borderRadius:   '50%',
-          background:     iconBg,
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'center',
-          flexShrink:     0,
-        }}>
-          {icon}
+      {/* Ghost card behind */}
+      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 -rotate-3 w-[280px] h-[180px] bg-blue-600/10 rounded-3xl border border-blue-600/15" />
+
+      {/* Floating live badge */}
+      <motion.div
+        variants={slideInLeft(1.2)}
+        initial="hidden"
+        animate="visible"
+        className="absolute top-12 -left-4 lg:-left-8 bg-slate-900 text-white rounded-2xl py-2.5 px-3.5 text-[11px] font-bold z-20 flex items-center shadow-xl whitespace-nowrap"
+      >
+        +₦2,400 received <span className="text-green-400 ml-1 mr-1">●</span> live
+      </motion.div>
+
+      {/* Main wallet card */}
+      <motion.div
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative bg-white rounded-[28px] p-7 border border-slate-200 shadow-2xl z-10 w-full"
+      >
+        {/* Card header */}
+        <div className="flex justify-between items-center mb-7">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-500">
+            <div className="w-6 h-4 bg-gradient-to-br from-amber-500 to-amber-400 rounded" />
+            Wallet
+          </div>
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm flex items-center justify-center bg-white border border-slate-100">
+            <img src="/assets/white-bg.png" alt="KoboSat Logo" className="w-full h-full object-cover" />
+          </div>
+        </div>
+
+        {/* Balance */}
+        <p className="text-[10px] font-semibold tracking-widest uppercase text-slate-500 mb-1.5">Available balance</p>
+        <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 leading-none mb-2">₦113,791</h2>
+        <div className="font-mono text-[11px] text-slate-500 mb-6 flex items-center">
+          <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-bold">⚡ 47,820 sats</span>
+          <span className="ml-2">≈ $30.40 USD</span>
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-3 gap-2">
+          {actions.map((a, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                {a.icon}
+              </div>
+              <span className="text-[10px] font-bold text-slate-700 tracking-wide">{a.label}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Payment notification */}
+      <motion.div
+        variants={slideInRight(1.0)}
+        initial="hidden"
+        animate="visible"
+        className="absolute -bottom-6 -right-2 lg:-right-6 bg-white rounded-2xl p-3 border border-slate-200 shadow-xl flex items-center gap-2.5 z-20 w-[210px]"
+      >
+        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+          <IconCheck size={15} className="text-green-600" />
         </div>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: text, marginBottom: 3, lineHeight: 1.2 }}>
-            {tx.name}
-          </p>
-          <p style={{
-            fontSize:     11,
-            color:        muted,
-            fontWeight:   500,
-            maxWidth:     180,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            {tx.desc}
-          </p>
+          <p className="text-[11px] font-bold text-slate-900 leading-tight">Payment received</p>
+          <p className="text-[10px] text-slate-500 font-mono">+₦12,500 · just now</p>
         </div>
-      </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: tx.type === 'send' ? C.red : C.green, marginBottom: 3 }}>
-          {tx.amount}
-        </p>
-        <p style={{ fontSize: 10, color: muted, fontFamily: "'DM Mono', monospace" }}>
-          {tx.sats}
-        </p>
-      </div>
-    </button>
+      </motion.div>
+    </motion.div>
   );
 }
 
-function SkeletonRow({ isDarkMode }) {
-  const bg = isDarkMode ? '#1A2035' : '#F1F5F9';
+function FeatureCard({ icon, title, desc, delay }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', background: bg }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ width: 100, height: 12, borderRadius: 6, background: bg }} />
-          <div style={{ width: 64,  height: 10, borderRadius: 5, background: bg }} />
-        </div>
+    <motion.div
+      variants={fadeUp(delay)}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: '-40px' }}
+      className="group p-8 lg:p-10 bg-white hover:bg-blue-50/50 transition-colors duration-300 border-b md:border-b-0 border-r-0 md:border-r border-slate-200 last:border-b-0 md:last:border-r-0 md:[&:nth-child(3n)]:border-r-0"
+    >
+      <div className="w-14 h-14 rounded-2xl border border-slate-200 flex items-center justify-center mb-6 bg-white group-hover:bg-blue-600 group-hover:border-blue-600 transition-all duration-300">
+        <span className="text-blue-600 group-hover:text-white transition-colors duration-300 flex">
+          {icon}
+        </span>
       </div>
-      <div style={{ width: 60, height: 12, borderRadius: 6, background: bg }} />
-    </div>
-  );
-}
-
-function EmptyState({ navigate, t, isDarkMode }) {
-  return (
-    <div style={{
-      display:        'flex',
-      flexDirection:  'column',
-      alignItems:     'center',
-      justifyContent: 'center',
-      padding:        '52px 24px',
-      textAlign:      'center',
-    }}>
-      <div style={{
-        width:          64,
-        height:         64,
-        borderRadius:   '50%',
-        background:     isDarkMode ? 'rgba(24,85,241,0.15)' : C.blueLight,
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        marginBottom:   20,
-      }}>
-        <Zap size={28} fill="currentColor" style={{ color: C.blue, opacity: 0.7 }} />
-      </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: isDarkMode ? '#fff' : C.ink, marginBottom: 8 }}>
-        {t.noTransactionsYet || 'No transactions yet'}
-      </p>
-      <p style={{ fontSize: 13, color: C.ink3, maxWidth: 200, lineHeight: 1.6, marginBottom: 24 }}>
-        {t.walletReadyMessage || 'Your Lightning wallet is ready. Receive your first payment!'}
-      </p>
-      <button
-        onClick={() => navigate('/receive')}
-        style={{
-          padding:    '12px 28px',
-          borderRadius: 100,
-          border:     'none',
-          background: C.blue,
-          color:      '#fff',
-          fontFamily: "'Sora', sans-serif",
-          fontSize:   13,
-          fontWeight: 700,
-          cursor:     'pointer',
-          boxShadow:  '0 4px 16px rgba(24,85,241,0.28)',
-          transition: 'all 0.2s',
-        }}
-      >
-        {t.receiveSatsBtn || 'Receive Sats'}
-      </button>
-    </div>
+      <h3 className="text-lg font-bold text-slate-900 mb-2.5 tracking-tight">{title}</h3>
+      <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
+    </motion.div>
   );
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function Dashboard({ user }) {
+export default function Landing() {
   const navigate = useNavigate();
-  const { isDarkMode, language } = useTheme();
-  const t = translations[language] || translations.en;
 
-  const [showBalance,       setShowBalance]       = useState(true);
-  const [isLoaded,          setIsLoaded]          = useState(false);
-  const [isLoadingData,     setIsLoadingData]     = useState(true);
-  const [isRefreshing,      setIsRefreshing]      = useState(false);
-  const [walletBalance,     setWalletBalance]     = useState({ ngn: 0, sats: 0 });
-  const [recentTransactions, setRecentTransactions] = useState([]);
-
-  const activePhone    = user?.phone || localStorage.getItem('kobosat_user_phone') || null;
-  const userFirstName  = user?.name ? user.name.split(' ')[0] : '';
-
-  // ── Data fetching (original logic preserved exactly) ──────────────────────
-  const fetchDashboardData = async (silentRefresh = false) => {
-    if (!activePhone) { setIsLoadingData(false); return; }
-    console.log('Fetching live data for:', activePhone);
-
-    if (!silentRefresh) setIsLoadingData(true);
-    else                setIsRefreshing(true);
-
-    try {
-      const txData   = await getTransactionHistory(activePhone);
-      const txArray  = txData.transactions || txData;
-      const isNewUser = !txArray || txArray.length === 0;
-
-      const balanceData = await getWalletBalance(activePhone);
-      if (balanceData) {
-        setWalletBalance({
-          ngn:  isNewUser ? 0 : (balanceData.balance_ngn  || 0),
-          sats: isNewUser ? 0 : (balanceData.balance_sats || 0),
-        });
-      }
-
-      if (Array.isArray(txArray) && txArray.length > 0) {
-        const mappedTxs = txArray.slice(0, 4).map(tx => ({
-          id:       tx.id || Math.random().toString(),
-          name:     tx.counterparty || (tx.type === 'receive' ? (t.paymentReceived || 'Payment Received') : (t.paymentSent || 'Payment Sent')),
-          desc:     tx.description  || (tx.type === 'receive' ? (t.lightningDeposit || 'Lightning Deposit')  : (t.lightningPayment || 'Lightning Payment')),
-          amount:   `${tx.type === 'send' ? '-' : '+'}₦${(tx.amount_ngn  || 0).toLocaleString()}`,
-          sats:     `${(tx.amount_sats || 0).toLocaleString()} sats`,
-          isSettle: tx.is_settled !== undefined ? tx.is_settled : true,
-          type:     tx.type || 'receive',
-        }));
-        setRecentTransactions(mappedTxs);
-      } else {
-        setRecentTransactions([]);
-      }
-    } catch (error) {
-      console.error('Failed to load live data:', error);
-      if (!silentRefresh) {
-        setWalletBalance({ ngn: 0, sats: 0 });
-        setRecentTransactions([]);
-      }
-    } finally {
-      setIsLoadingData(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    setIsLoaded(true);
-    fetchDashboardData();
-    const id = setInterval(() => fetchDashboardData(true), 10000);
-    return () => clearInterval(id);
-  }, [user, activePhone]);
-
-  // ── Theme shortcuts ────────────────────────────────────────────────────────
-  const bg     = isDarkMode ? C.darkBg     : C.blueXLight;
-  const card   = isDarkMode ? C.darkCard   : C.white;
-  const border = isDarkMode ? C.darkBorder : C.line;
-  const text   = isDarkMode ? '#FFFFFF'    : C.ink;
-  const muted  = isDarkMode ? '#9CA3AF'    : C.ink3;
-
-  // ── Quick actions config ───────────────────────────────────────────────────
-  const quickActions = [
-    { name: t.actionReceive  || 'Receive',    icon: <ArrowDown size={22} />, path: '/receive' },
-    { name: t.actionSendSats || 'Send Sats',  icon: <Send      size={22} />, path: '/send'    },
-    { name: t.actionLogDebt  || 'Log Debt',   icon: <FileText  size={22} />, path: '/debts'   },
-    { name: t.actionViewDebts|| 'View Debts', icon: <Users     size={22} />, path: '/debts'   },
+  const features = [
+    {
+      icon: <IconBolt size={22} />,
+      title: 'Instant Lightning payments',
+      desc: 'Customers scan your QR and you\'re paid in under 3 seconds — settled directly to your wallet with zero fees.',
+    },
+    {
+      icon: <IconPhone size={22} />,
+      title: 'USSD for any phone',
+      desc: 'Dial *384*7287# from any device — feature phone or smartphone. No internet required to transact.',
+    },
+    {
+      icon: <IconShield size={22} />,
+      title: 'Your keys, your money',
+      desc: 'Powered by Breez SDK. Non-custodial from day one — we never touch your funds. Full sovereignty.',
+    },
+    {
+      icon: <IconUsers size={22} />,
+      title: 'Debt tracking',
+      desc: 'Track who owes you and send instant payment requests. No more manual ledgers or missed payments.',
+    },
+    {
+      icon: <IconDollar size={22} />,
+      title: 'Naira-first experience',
+      desc: 'See your balance in naira always. Bitcoin and sats live quietly in the background — invisible complexity.',
+    },
+    {
+      icon: <IconGlobe size={22} />,
+      title: 'Borderless money',
+      desc: 'Send and receive from anywhere in the world with a Lightning address like amara@kobosat.app.',
+    },
   ];
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const steps = [
+    {
+      num: '01',
+      title: 'Create your wallet',
+      desc: 'Sign up with a phone number. Your Lightning address is instantly generated — no BVN or ID required.',
+    },
+    {
+      num: '02',
+      title: 'Share your QR or address',
+      desc: 'Show your QR code in-person, or share your Lightning address online. Customers pay from any wallet.',
+    },
+    {
+      num: '03',
+      title: 'Get paid in naira',
+      desc: 'Funds arrive in seconds, displayed as naira in your wallet. Withdraw via USSD anytime.',
+    },
+  ];
+
+  const stats = [
+    { value: '₦0', suffix: ' fees', label: 'On Lightning transactions. You keep everything.' },
+    { value: '30s', suffix: '', label: 'To create a wallet and get your Lightning address.' },
+    { value: '100%', suffix: ' yours', label: 'Non-custodial. Your keys, your money — always.' },
+  ];
+
   return (
-    <div style={{
-      minHeight:              '100vh',
-      background:             bg,
-      fontFamily:             "'Sora', sans-serif",
-      WebkitFontSmoothing:    'antialiased',
-      color:                  text,
-      paddingBottom:          80,
-    }}>
-
-      {/* Font imports */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @media (max-width: 1024px) {
-          .dash-grid    { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 640px) {
-          .dash-pad     { padding: 16px 16px 100px !important; }
-          .actions-row  { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
-
-      {/* ── GLOBAL HEADER ── */}
-      <GlobalHeader user={user} />
-
-      {/* ── PAGE BODY ── */}
-      <div
-        className="dash-pad"
-        style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 40px 80px' }}
+    <div className="font-sora bg-white text-slate-900 min-h-screen overflow-x-hidden selection:bg-blue-600/15">
+      
+      {/* ── NAVBAR ── */}
+      <motion.nav
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="flex items-center justify-between px-6 lg:px-12 py-5 border-b border-slate-200 sticky top-0 bg-white/90 backdrop-blur-md z-50"
       >
+        <Logo />
+        <div className="flex items-center gap-2 lg:gap-4">
+          <button onClick={() => navigate('/auth')} className="hidden sm:block px-5 py-2.5 rounded-full text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+            Sign in
+          </button>
+          <button onClick={() => navigate('/auth')} className="px-5 py-2.5 rounded-full bg-blue-600 text-white text-sm font-bold shadow-lg shadow-blue-600/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
+            Get started →
+          </button>
+        </div>
+      </motion.nav>
+
+      {/* ── HERO ── */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 min-h-[calc(100vh-80px)] lg:max-h-[860px]">
+        {/* Left copy */}
+        <div className="px-6 py-16 lg:px-16 lg:py-24 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-slate-200 order-2 lg:order-1">
+          <motion.div variants={fadeUp(0)} initial="hidden" animate="visible" className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-50 rounded-full text-[11px] font-bold tracking-[1.2px] uppercase text-blue-600 w-fit mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+            Bitcoin Lightning · Nigeria
+          </motion.div>
+
+          <motion.h1 variants={fadeUp(0.1)} initial="hidden" animate="visible" className="text-5xl lg:text-6xl font-extrabold leading-[1.05] tracking-tight text-slate-900 mb-6">
+            Get paid instantly.<br />
+            <span className="text-blue-600 relative">In naira.</span>
+          </motion.h1>
+
+          <motion.p variants={fadeUp(0.2)} initial="hidden" animate="visible" className="text-base lg:text-lg text-slate-500 leading-relaxed max-w-md mb-10">
+            The fastest way for Nigerian traders to receive Lightning payments,
+            settle in naira, and access borderless money — no BVN, no bank delays.
+          </motion.p>
+
+          <motion.div variants={fadeUp(0.3)} initial="hidden" animate="visible" className="flex flex-col sm:flex-row items-center gap-4 mb-12">
+            <button onClick={() => navigate('/auth')} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-blue-600 text-white text-[15px] font-bold shadow-xl shadow-blue-600/25 hover:bg-blue-700 hover:-translate-y-0.5 transition-all">
+              Create free wallet
+              <IconArrowRight size={16} />
+            </button>
+            <button onClick={() => navigate('/auth')} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-full bg-white text-slate-800 text-[15px] font-semibold border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all">
+              <IconPlay size={15} />
+              See how it works
+            </button>
+          </motion.div>
+
+          <motion.div variants={fadeUp(0.4)} initial="hidden" animate="visible" className="flex flex-wrap items-center gap-5 lg:gap-7">
+            {[
+              { color: 'bg-green-500', label: 'Non-custodial' },
+              { color: 'bg-blue-600', label: 'Breez SDK' },
+              { color: 'bg-amber-500', label: 'USSD *384*7287#' },
+            ].map((t, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span className={`w-1.5 h-1.5 rounded-full ${t.color}`} />
+                {t.label}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Right wallet mockup */}
+        <div className="bg-slate-50 relative overflow-hidden flex items-center justify-center p-12 lg:p-16 min-h-[500px] order-1 lg:order-2">
+          {/* Decorative Grid */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#1855F1 1px, transparent 1px), linear-gradient(90deg, #1855F1 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+          {/* Glow */}
+          <div className="absolute w-[300px] h-[300px] lg:w-[400px] lg:h-[400px] rounded-full bg-blue-600/5 blur-3xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+          
+          <WalletCard />
+        </div>
+      </section>
+
+      {/* ── STATS ROW ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 border-b border-slate-200">
+        {stats.map((s, i) => (
+          <motion.div
+            key={i}
+            variants={fadeUp(i * 0.1)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className={`px-8 py-10 lg:p-12 ${i < 2 ? 'border-b md:border-b-0 md:border-r border-slate-200' : ''}`}
+          >
+            <div className="text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
+              <span className="text-blue-600">{s.value}</span>{s.suffix}
+            </div>
+            <p className="text-sm font-medium text-slate-500 leading-relaxed">{s.label}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* ── FEATURES ── */}
+      <section className="px-6 py-20 lg:p-24 bg-slate-50/50">
         <motion.div
-          className="dash-grid"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.35 }}
-          style={{
-            display:             'grid',
-            gridTemplateColumns: '1fr 340px',
-            gap:                 24,
-            alignItems:          'start',
-          }}
+          variants={fadeUp(0)}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="max-w-xl mb-14"
         >
-
-          {/* ═══════════════ LEFT COLUMN ═══════════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* ── 1. BALANCE CARD ── */}
-            <motion.div
-              variants={fadeUp(0)}
-              initial="hidden"
-              animate="visible"
-              style={{
-                background:   C.ink,
-                borderRadius: 28,
-                padding:      '40px 40px 32px',
-                position:     'relative',
-                overflow:     'hidden',
-              }}
-            >
-              {/* Dot-grid texture */}
-              <div style={{
-                position:            'absolute',
-                inset:               0,
-                backgroundImage:     'radial-gradient(circle, rgba(24,85,241,0.18) 1px, transparent 1px)',
-                backgroundSize:      '28px 28px',
-                pointerEvents:       'none',
-              }} />
-              {/* Glow */}
-              <div style={{
-                position:   'absolute',
-                top:        -60, right: -60,
-                width:      280, height: 280,
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(24,85,241,0.28) 0%, transparent 70%)',
-                pointerEvents: 'none',
-              }} />
-
-              {/* Card top row */}
-              <div style={{
-                display:        'flex',
-                justifyContent: 'space-between',
-                alignItems:     'center',
-                marginBottom:   32,
-                position:       'relative',
-                zIndex:         1,
-              }}>
-                <div style={{
-                  display:     'flex',
-                  alignItems:  'center',
-                  gap:         8,
-                  background:  'rgba(255,255,255,0.07)',
-                  border:      '1px solid rgba(255,255,255,0.10)',
-                  borderRadius: 100,
-                  padding:     '6px 14px',
-                }}>
-                  {/* Live indicator */}
-                  <span style={{
-                    display:      'inline-block',
-                    width:        6, height: 6,
-                    borderRadius: '50%',
-                    background:   C.green,
-                  }} />
-                  <span style={{
-                    fontSize:      10,
-                    fontWeight:    700,
-                    letterSpacing: '1.2px',
-                    textTransform: 'uppercase',
-                    color:         'rgba(255,255,255,0.65)',
-                  }}>
-                    {t.walletBalance || 'Wallet Balance'}
-                  </span>
-                </div>
-
-                {/* Show / hide toggle */}
-                <button
-                  onClick={() => setShowBalance(v => !v)}
-                  style={{
-                    width:          36, height: 36,
-                    borderRadius:   '50%',
-                    border:         'none',
-                    background:     'rgba(255,255,255,0.07)',
-                    color:          'rgba(255,255,255,0.6)',
-                    cursor:         'pointer',
-                    display:        'flex',
-                    alignItems:     'center',
-                    justifyContent: 'center',
-                    transition:     'background 0.2s',
-                    flexShrink:     0,
-                  }}
-                >
-                  {showBalance ? <Eye size={16} /> : <EyeOff size={16} />}
-                </button>
-              </div>
-
-              {/* Balance amount */}
-              <div style={{ position: 'relative', zIndex: 1, marginBottom: 32, minHeight: 92 }}>
-                {isLoadingData && !isRefreshing ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ height: 64, width: 240, borderRadius: 12, background: 'rgba(255,255,255,0.07)' }} />
-                    <div style={{ height: 26, width: 160, borderRadius:  8, background: 'rgba(255,255,255,0.04)' }} />
-                  </div>
-                ) : (
-                  <>
-                    <div style={{
-                      fontSize:      'clamp(40px, 5.5vw, 64px)',
-                      fontWeight:    800,
-                      letterSpacing: '-3px',
-                      color:         '#FFFFFF',
-                      lineHeight:    1,
-                      marginBottom:  14,
-                    }}>
-                      {showBalance ? `₦${walletBalance.ngn.toLocaleString()}` : '••••••'}
-                    </div>
-                    <div style={{
-                      display:     'inline-flex',
-                      alignItems:  'center',
-                      gap:         6,
-                      background:  'rgba(24,85,241,0.22)',
-                      border:      '1px solid rgba(24,85,241,0.38)',
-                      borderRadius: 100,
-                      padding:     '4px 12px',
-                      fontFamily:  "'DM Mono', monospace",
-                      fontSize:    12,
-                      fontWeight:  500,
-                      color:       '#93B4FD',
-                    }}>
-                      <Zap size={11} fill="currentColor" style={{ color: C.amber }} />
-                      {showBalance ? `${walletBalance.sats.toLocaleString()} sats` : '•••• sats'}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Weekly stat row */}
-              <div style={{
-                display:       'flex',
-                justifyContent:'space-between',
-                alignItems:    'center',
-                paddingTop:    20,
-                borderTop:     '1px solid rgba(255,255,255,0.08)',
-                position:      'relative',
-                zIndex:        1,
-              }}>
-                <span style={{
-                  fontSize:   13,
-                  fontWeight: 500,
-                  color:      'rgba(255,255,255,0.45)',
-                  display:    'flex',
-                  alignItems: 'center',
-                  gap:        6,
-                }}>
-                  <TrendingUp size={13} /> {t.thisWeek || 'This week'}
-                </span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>+₦0</span>
-              </div>
-            </motion.div>
-
-            {/* ── 2. QUICK ACTIONS ── */}
-            <motion.div
-              className="actions-row"
-              variants={fadeUp(0.1)}
-              initial="hidden"
-              animate="visible"
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}
-            >
-              {quickActions.map((action, i) => (
-                <QuickAction
-                  key={i}
-                  action={action}
-                  isDarkMode={isDarkMode}
-                  card={card}
-                  border={border}
-                  text={text}
-                  onClick={() => navigate(action.path)}
-                />
-              ))}
-            </motion.div>
-
-            {/* ── 3. RECENT ACTIVITY ── */}
-            <motion.div variants={fadeUp(0.18)} initial="hidden" animate="visible">
-              {/* Section header */}
-              <div style={{
-                display:        'flex',
-                justifyContent: 'space-between',
-                alignItems:     'center',
-                marginBottom:   16,
-              }}>
-                <h3 style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.4px', color: text }}>
-                  {t.recentActivity || 'Recent activity'}
-                </h3>
-                <button
-                  onClick={() => fetchDashboardData(true)}
-                  style={{
-                    display:    'flex',
-                    alignItems: 'center',
-                    gap:        6,
-                    fontSize:   13,
-                    fontWeight: 700,
-                    color:      C.blue,
-                    background: 'none',
-                    border:     'none',
-                    cursor:     'pointer',
-                    fontFamily: "'Sora', sans-serif",
-                    padding:    0,
-                  }}
-                >
-                  <RefreshCw
-                    size={12}
-                    style={isRefreshing ? { animation: 'spin 0.8s linear infinite' } : {}}
-                  />
-                  {t.seeAll || 'See all'}
-                </button>
-              </div>
-
-              {/* Activity card */}
-              <div style={{
-                background:   card,
-                borderRadius: 24,
-                border:       `1px solid ${border}`,
-                overflow:     'hidden',
-              }}>
-                {isLoadingData && !isRefreshing ? (
-                  <div style={{ padding: 8 }}>
-                    {[1, 2, 3].map(i => <SkeletonRow key={i} isDarkMode={isDarkMode} />)}
-                  </div>
-                ) : recentTransactions.length === 0 ? (
-                  <EmptyState navigate={navigate} t={t} isDarkMode={isDarkMode} />
-                ) : (
-                  <div style={{ padding: 8 }}>
-                    {recentTransactions.map((tx, i) => (
-                      <TransactionRow
-                        key={tx.id}
-                        tx={tx}
-                        isDarkMode={isDarkMode}
-                        text={text}
-                        muted={muted}
-                        isLast={i === recentTransactions.length - 1}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-          </div>{/* end left column */}
-
-          {/* ═══════════════ RIGHT COLUMN ═══════════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* ── 4. MARKET INSIGHT CARD ── */}
-            <motion.div
-              variants={fadeUp(0.14)}
-              initial="hidden"
-              animate="visible"
-              style={{
-                background:   card,
-                borderRadius: 24,
-                padding:      '28px',
-                border:       `1px solid ${border}`,
-              }}
-            >
-              <div style={{
-                display:     'flex',
-                alignItems:  'center',
-                gap:         7,
-                marginBottom: 14,
-              }}>
-                <span style={{
-                  width: 6, height: 6,
-                  borderRadius: '50%',
-                  background:   C.blue,
-                  flexShrink:   0,
-                  display:      'inline-block',
-                }} />
-                <span style={{
-                  fontSize:      10,
-                  fontWeight:    700,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color:         C.blue,
-                }}>
-                  {t.todaysMarket || "Today's market"}
-                </span>
-              </div>
-
-              <h4 style={{
-                fontSize:     16,
-                fontWeight:   700,
-                color:        text,
-                letterSpacing:'-0.3px',
-                lineHeight:   1.35,
-                marginBottom: 10,
-              }}>
-                {t.customersPayingFaster || 'Customers are paying faster'}&nbsp;
-                <Zap size={17} fill={C.amber} style={{ color: C.amber, verticalAlign: 'middle' }} />
-              </h4>
-
-              <p style={{ fontSize: 13, color: muted, lineHeight: 1.7 }}>
-                {t.settlementMessage || 'Your average settlement time this week is under 3 seconds. Keep it going'}
-                {userFirstName ? `, ${userFirstName}.` : '.'}
-              </p>
-            </motion.div>
-
-            {/* ── 5. USSD CARD ── */}
-            <motion.div
-              variants={fadeUp(0.20)}
-              initial="hidden"
-              animate="visible"
-              style={{
-                background:   card,
-                borderRadius: 24,
-                padding:      '28px',
-                border:       `1px solid ${border}`,
-              }}
-            >
-              <div style={{
-                display:     'flex',
-                alignItems:  'center',
-                gap:         7,
-                marginBottom: 16,
-              }}>
-                <Smartphone size={13} style={{ color: C.blue, opacity: 0.8 }} />
-                <span style={{
-                  fontSize:      10,
-                  fontWeight:    700,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color:         C.blue,
-                  opacity:       0.85,
-                }}>
-                  {t.ussdCodeLabel || 'USSD Code'}
-                </span>
-              </div>
-
-              {/* The big USSD number */}
-              <div style={{
-                fontFamily:    "'DM Mono', monospace",
-                fontSize:      32,
-                fontWeight:    700,
-                color:         C.blue,
-                letterSpacing: '1px',
-                marginBottom:  10,
-                lineHeight:    1.1,
-              }}>
-                *384*7287#
-              </div>
-
-              <p style={{ fontSize: 13, color: muted, lineHeight: 1.65, marginBottom: 24 }}>
-                {t.dialFromAnyPhone || 'Dial from any phone — no internet needed.'}
-              </p>
-
-              <button
-                onClick={() => navigate('/ussd')}
-                style={{
-                  width:       '100%',
-                  padding:     '14px 0',
-                  borderRadius: 100,
-                  border:      `1.5px solid ${C.blueLight}`,
-                  background:  isDarkMode ? 'rgba(24,85,241,0.10)' : C.blueLight,
-                  color:       C.blue,
-                  fontFamily:  "'Sora', sans-serif",
-                  fontSize:    13,
-                  fontWeight:  700,
-                  cursor:      'pointer',
-                  transition:  'all 0.2s',
-                  letterSpacing: '0.1px',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = C.blue;
-                  e.currentTarget.style.color = '#fff';
-                  e.currentTarget.style.borderColor = C.blue;
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = isDarkMode ? 'rgba(24,85,241,0.10)' : C.blueLight;
-                  e.currentTarget.style.color = C.blue;
-                  e.currentTarget.style.borderColor = C.blueLight;
-                }}
-              >
-                {t.openUssdEmulator || 'Open USSD emulator'}
-              </button>
-            </motion.div>
-
-          </div>{/* end right column */}
-
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-5">
+            Features
+          </div>
+          <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 mb-4">Built for African commerce</h2>
+          <p className="text-base text-slate-500 leading-relaxed">
+            Naira-first. Bitcoin invisible. Everything a trader needs to get paid fast and stay in control.
+          </p>
         </motion.div>
-      </div>
 
-      {/* ── BOTTOM NAV (mobile) ── */}
-      <div className="md:hidden">
-        <BottomNav />
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 bg-slate-200 gap-[1px] border border-slate-200 rounded-3xl overflow-hidden">
+          {features.map((f, i) => (
+            <FeatureCard key={i} {...f} delay={i * 0.08} />
+          ))}
+        </div>
+      </section>
 
+      {/* ── HOW IT WORKS ── */}
+      <section className="px-6 py-20 lg:p-24 bg-white border-t border-b border-slate-200">
+        <motion.div
+          variants={fadeUp(0)}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="max-w-xl mb-16"
+        >
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-blue-600 mb-5">
+            How it works
+          </div>
+          <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 mb-4">Live in 30 seconds</h2>
+          <p className="text-base text-slate-500 leading-relaxed">No documents. No bank account. No waiting.</p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+          {/* Connecting line (Desktop only) */}
+          <div className="hidden md:block absolute top-7 left-[16.6%] w-[66.6%] h-[1.5px] bg-slate-200" />
+          
+          {steps.map((s, i) => (
+            <motion.div
+              key={i}
+              variants={fadeUp(i * 0.15)}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="flex flex-col items-start lg:px-8"
+            >
+              <div className="w-14 h-14 rounded-full bg-white border-2 border-slate-100 shadow-sm flex items-center justify-center text-[15px] font-extrabold text-blue-600 mb-6 relative z-10">
+                {s.num}
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2.5 tracking-tight">{s.title}</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA BANNER ── */}
+      <section className="px-6 py-20 lg:p-24">
+        <motion.div
+          variants={fadeUp(0)}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="bg-slate-900 rounded-[2rem] p-10 lg:p-20 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-12 relative overflow-hidden"
+        >
+          {/* Decorative rings */}
+          <div className="absolute -right-20 -top-20 w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none" />
+          <div className="absolute -right-10 -top-10 w-[200px] h-[200px] rounded-full border border-white/10 pointer-events-none" />
+
+          <div className="relative z-10">
+            <p className="text-[11px] font-bold tracking-widest uppercase text-white/40 mb-5">Get started free</p>
+            <h2 className="text-3xl lg:text-[42px] font-extrabold tracking-tight text-white leading-[1.1] mb-5">
+              Start receiving Lightning<br />
+              payments <span className="text-blue-400">today.</span>
+            </h2>
+            <p className="text-[15px] text-white/60 leading-relaxed max-w-md">
+              Open a free trader wallet in 30 seconds. Get a personal Lightning address like
+            </p>
+            <p className="font-mono text-sm text-blue-400 mt-2">amara@kobosat.app</p>
+          </div>
+
+          <button onClick={() => navigate('/auth')} className="inline-flex items-center gap-2.5 px-9 py-4.5 rounded-full bg-blue-600 text-white text-[15px] font-bold shadow-xl shadow-blue-600/40 hover:bg-blue-500 hover:-translate-y-0.5 transition-all relative z-10 whitespace-nowrap">
+            Create my wallet
+            <IconArrowRight size={16} />
+          </button>
+        </motion.div>
+      </section>
+
+      {/* ── FOOTER ── */}
+      <footer className="flex flex-col sm:flex-row items-center justify-between gap-6 px-6 lg:px-12 py-8 border-t border-slate-200">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-slate-200 shadow-sm">
+            <img src="/assets/white-bg.png" alt="KoboSat Logo" className="w-full h-full object-cover" />
+          </div>
+          <span className="text-[13px] font-bold text-slate-500">KoboSat</span>
+          <span className="text-xs text-slate-400">· © 2026</span>
+        </div>
+        <div className="flex items-center gap-6">
+          {['Sign in', 'Sign up', 'Help'].map((label) => (
+            <button key={label} onClick={() => navigate('/auth')} className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors">
+              {label}
+            </button>
+          ))}
+        </div>
+      </footer>
     </div>
   );
 }
