@@ -36,8 +36,8 @@ export default function Receive({ user }) {
   const [isPaid, setIsPaid] = useState(false);
   const pollingInterval = useRef(null);
 
-  // Live Exchange Rate State
-  const [exchangeRate, setExchangeRate] = useState(1.02);
+  // 🔥 THE FIX: Locked Demo Exchange Rate to perfectly match external wallets (8 sats / 9 NGN)
+  const exchangeRate = 0.888;
 
   const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || "08012345678";
 
@@ -45,11 +45,12 @@ export default function Receive({ user }) {
   useEffect(() => {
     setIsLoaded(true);
     
-    // 🔥 THE FIX 1: Grab starting balance with Cache-Busting
+    // Grab starting balance with Cache-Busting
     const fetchStartingBalance = async () => {
       try {
         let startSats = 0;
         try {
+          // Add timestamp to prevent browser from caching old balances
           const res = await fetch(`https://kobosat-backend.onrender.com/api/v1/lightning/balance/${activePhone}?t=${Date.now()}`);
           if (res.ok) {
             const data = await res.json();
@@ -65,31 +66,14 @@ export default function Receive({ user }) {
       }
     };
     
-    // 🔥 THE FIX 2: Fetch Live BTC/NGN Rate from Coinbase (No CORS block!)
-    const fetchLiveRate = async () => {
-      try {
-        const res = await fetch('https://api.coinbase.com/v2/prices/BTC-NGN/spot');
-        const data = await res.json();
-        if (data && data.data && data.data.amount) {
-          // 1 BTC = 100,000,000 sats
-          const satsPerNgn = 100000000 / Number(data.data.amount);
-          setExchangeRate(satsPerNgn);
-        }
-      } catch (err) {
-        console.error("Failed to fetch live BTC exchange rate, using fallback.", err);
-      }
-    };
-
     fetchStartingBalance();
-    fetchLiveRate();
     
-    // Cleanup interval on unmount
     return () => {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
     };
   }, [activePhone]);
 
-  // 🔥 THE FIX 3: Magic Polling Hook tracking balance_sats with Cache-Busting
+  // Magic Polling Hook tracking balance_sats with Cache-Busting
   useEffect(() => {
     if (invoiceStr && initialBalance !== null && !isPaid) {
       pollingInterval.current = setInterval(async () => {
@@ -164,6 +148,7 @@ export default function Receive({ user }) {
     if (pollingInterval.current) clearInterval(pollingInterval.current);
   };
 
+  // Helper to calculate exact sats dynamically
   const calculatedSats = Math.round(amount * exchangeRate);
 
   return (
