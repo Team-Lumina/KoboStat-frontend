@@ -36,7 +36,7 @@ export default function Receive({ user }) {
   const [isPaid, setIsPaid] = useState(false);
   const pollingInterval = useRef(null);
 
-  // Live Exchange Rate State (Default to ~1.02 sats per NGN as fallback)
+  // Live Exchange Rate State
   const [exchangeRate, setExchangeRate] = useState(1.02);
 
   const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || "08012345678";
@@ -45,29 +45,34 @@ export default function Receive({ user }) {
   useEffect(() => {
     setIsLoaded(true);
     
-    // 🔥 THE FIX: Correctly targeting balance_sats from the backend
+    // 🔥 THE FIX 1: Grab starting balance with Cache-Busting
     const fetchStartingBalance = async () => {
       try {
-        const data = await getWalletBalance(activePhone);
-        if (data) {
-          setInitialBalance(data.balance_sats || 0);
-        } else {
-          setInitialBalance(0);
+        let startSats = 0;
+        try {
+          const res = await fetch(`https://kobosat-backend.onrender.com/api/v1/lightning/balance/${activePhone}?t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            startSats = data?.balance_sats || 0;
+          } else throw new Error();
+        } catch(e) {
+          const data = await getWalletBalance(activePhone);
+          startSats = data?.balance_sats || 0;
         }
+        setInitialBalance(startSats);
       } catch (err) {
-        console.error("Failed to fetch initial balance", err);
-        setInitialBalance(0); // Fallback so polling can still start
+        setInitialBalance(0);
       }
     };
     
-    // Fetch Live BTC/NGN Rate from CoinGecko
+    // 🔥 THE FIX 2: Fetch Live BTC/NGN Rate from Coinbase (No CORS block!)
     const fetchLiveRate = async () => {
       try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=ngn');
+        const res = await fetch('https://api.coinbase.com/v2/prices/BTC-NGN/spot');
         const data = await res.json();
-        if (data && data.bitcoin && data.bitcoin.ngn) {
+        if (data && data.data && data.data.amount) {
           // 1 BTC = 100,000,000 sats
-          const satsPerNgn = 100000000 / data.bitcoin.ngn;
+          const satsPerNgn = 100000000 / Number(data.data.amount);
           setExchangeRate(satsPerNgn);
         }
       } catch (err) {
@@ -84,21 +89,27 @@ export default function Receive({ user }) {
     };
   }, [activePhone]);
 
-  // 🔥 THE FIX: Magic Polling Hook tracking balance_sats
+  // 🔥 THE FIX 3: Magic Polling Hook tracking balance_sats with Cache-Busting
   useEffect(() => {
     if (invoiceStr && initialBalance !== null && !isPaid) {
-      // Check the balance every 3 seconds
       pollingInterval.current = setInterval(async () => {
         try {
-          const data = await getWalletBalance(activePhone);
-          const currentSats = data?.balance_sats || 0;
+          let currentSats = 0;
+          try {
+             // Force the browser to fetch fresh data every 3 seconds
+             const response = await fetch(`https://kobosat-backend.onrender.com/api/v1/lightning/balance/${activePhone}?t=${Date.now()}`);
+             if (response.ok) {
+               const data = await response.json();
+               currentSats = data?.balance_sats || 0;
+             } else throw new Error();
+          } catch (e) {
+             const data = await getWalletBalance(activePhone);
+             currentSats = data?.balance_sats || 0;
+          }
           
-          // If sats increased, payment was successful!
           if (currentSats > initialBalance) {
             clearInterval(pollingInterval.current);
             setIsPaid(true);
-            
-            // Auto-redirect to dashboard after 3 seconds of showing success
             setTimeout(() => {
               navigate('/dashboard');
             }, 3000);
@@ -153,7 +164,6 @@ export default function Receive({ user }) {
     if (pollingInterval.current) clearInterval(pollingInterval.current);
   };
 
-  // Helper to calculate exact sats dynamically
   const calculatedSats = Math.round(amount * exchangeRate);
 
   return (
@@ -174,7 +184,6 @@ export default function Receive({ user }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           
-          {/* LEFT COLUMN: Input & Controls */}
           <div className="lg:col-span-7 space-y-6">
             
             {showTip && !isPaid && (
@@ -263,7 +272,6 @@ export default function Receive({ user }) {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Desktop Invoice Preview Card */}
           <div className="hidden lg:block lg:col-span-5">
             <div className={`sticky top-32 p-8 rounded-[2rem] border transition-all duration-500 flex flex-col items-center text-center ${isPaid ? (isDarkMode ? 'bg-green-900/20 border-green-500/50' : 'bg-green-50 border-green-200') : (isDarkMode ? 'bg-gradient-to-b from-[#0a0a0a] to-[#050505] border-blue-900/30 shadow-2xl shadow-black' : 'bg-white border-blue-100 shadow-xl shadow-blue-900/5')}`}>
               
@@ -273,7 +281,6 @@ export default function Receive({ user }) {
                 <Maximize size={20} />
               </div>
 
-              {/* Success State vs QR State */}
               <div className={`w-full max-w-[280px] min-h-[256px] rounded-3xl flex items-center justify-center mb-8 border-2 border-dashed p-4 transition-all duration-500 ${isPaid ? 'border-green-400 bg-white dark:bg-black scale-105' : invoiceStr ? (isDarkMode ? 'border-green-500/50 bg-green-900/10' : 'border-green-400 bg-green-50') : amount > 0 ? (isDarkMode ? 'border-blue-500/50 bg-blue-900/10' : 'border-blue-400 bg-blue-50') : (isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-200 bg-slate-50')}`}>
                 
                 {isPaid ? (
@@ -347,7 +354,6 @@ export default function Receive({ user }) {
         </div>
       </div>
 
-      {/* Mobile Generated Invoice Overlay */}
       {invoiceStr && !isPaid && (
         <div className="md:hidden fixed inset-x-0 bottom-0 top-20 bg-white dark:bg-black z-50 p-6 flex flex-col items-center justify-center animate-in slide-in-from-bottom">
            <button onClick={handleClear} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
@@ -355,7 +361,6 @@ export default function Receive({ user }) {
            </button>
            <h2 className="text-2xl font-bold mb-8">Scan to Pay</h2>
            <div className="p-4 bg-white rounded-2xl shadow-xl border border-slate-100 mb-8 flex justify-center items-center relative overflow-hidden">
-             {/* Scanning radar sweep animation overlay */}
              <div className="absolute inset-0 bg-gradient-to-b from-blue-500/0 via-blue-500/20 to-blue-500/0 h-1/2 w-full animate-[ping_3s_ease-in-out_infinite] pointer-events-none" />
              <QRCodeSVG 
                value={`lightning:${invoiceStr}`} 
@@ -376,7 +381,6 @@ export default function Receive({ user }) {
         </div>
       )}
 
-      {/* Mobile Success Overlay */}
       {isPaid && (
         <div className="md:hidden fixed inset-0 bg-white dark:bg-black z-50 flex flex-col items-center justify-center animate-in zoom-in duration-300">
            <div className="w-32 h-32 bg-green-100 text-green-500 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-6">
