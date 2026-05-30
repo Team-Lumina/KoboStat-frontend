@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiUser, FiPhone, FiLock, FiArrowRight, FiShield, FiCheckCircle } from 'react-icons/fi';
+import { FiUser, FiPhone, FiLock, FiArrowRight, FiShield, FiCheckCircle, FiEye, FiEyeOff } from 'react-icons/fi';
 import { registerTrader, getTraderProfile } from '../services/api'; 
 import whiteLogo from '/assets/white-bg.png';
 
@@ -19,6 +19,9 @@ export default function Auth({ onLogin }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotMsg, setShowForgotMsg] = useState(false);
+  
+  // Toggle for viewing PIN
+  const [showPin, setShowPin] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -134,6 +137,7 @@ export default function Auth({ onLogin }) {
     setStep(1);
     setError('');
     setShowForgotMsg(false);
+    setShowPin(false); // Reset PIN visibility
     setFormData({ fullName: '', phone: '', pin: '', confirmPin: '' });
     setOtp(['', '', '', '']);
   };
@@ -246,7 +250,7 @@ export default function Auth({ onLogin }) {
                     <div className="flex items-center bg-slate-50 border-2 border-transparent focus-within:border-blue-500 rounded-2xl transition-all overflow-hidden">
                       <div className="pl-4 text-slate-400"><FiLock size={18} /></div>
                       <input 
-                        type="password" 
+                        type={showPin ? "text" : "password"} 
                         inputMode="numeric"
                         maxLength="4"
                         placeholder="4-Digit PIN"
@@ -256,6 +260,13 @@ export default function Auth({ onLogin }) {
                         required
                         disabled={isLoading}
                       />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPin(!showPin)}
+                        className="pr-4 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                      >
+                        {showPin ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                      </button>
                     </div>
                   </div>
 
@@ -264,7 +275,7 @@ export default function Auth({ onLogin }) {
                       <div className="flex items-center bg-slate-50 border-2 border-transparent focus-within:border-blue-500 rounded-2xl transition-all overflow-hidden">
                         <div className="pl-4 text-slate-400"><FiLock size={18} /></div>
                         <input 
-                          type="password" 
+                          type={showPin ? "text" : "password"} 
                           inputMode="numeric"
                           maxLength="4"
                           placeholder="Confirm PIN"
@@ -274,6 +285,13 @@ export default function Auth({ onLogin }) {
                           required={!isLogin}
                           disabled={isLoading}
                         />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowPin(!showPin)}
+                          className="pr-4 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                        >
+                          {showPin ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                        </button>
                       </div>
                     </div>
                   )}
