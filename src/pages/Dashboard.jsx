@@ -44,9 +44,17 @@ export default function Dashboard({ user }) {
   const [walletBalance, setWalletBalance] = useState({ ngn: 0, sats: 0 });
   const [recentTransactions, setRecentTransactions] = useState([]);
 
-  const activePhone = user?.phone || "08012345678";
+  // 🔥 THE FIX: Prioritize actual user prop, then local storage, and fallback to null.
+  // We completely removed the "08012345678" hardcoded test number.
+  const activePhone = user?.phone || localStorage.getItem('kobosat_user_phone') || null;
 
   const fetchDashboardData = async (silentRefresh = false) => {
+    // 🔥 THE FIX: Stop fetching if we don't have a real user yet!
+    if (!activePhone) {
+      setIsLoadingData(false);
+      return;
+    }
+
     if (!silentRefresh) setIsLoadingData(true);
     else setIsRefreshing(true);
 
@@ -96,7 +104,7 @@ export default function Dashboard({ user }) {
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [user]);
+  }, [user, activePhone]); // Re-run if activePhone finally loads
 
   return (
     <div className={`min-h-screen pb-28 md:pb-12 transition-colors duration-700 ease-in-out ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>

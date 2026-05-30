@@ -371,6 +371,14 @@ export default function Auth({ onLogin }) {
                   ))}
                 </div>
 
+                {/* THE NEW DEMO NOTE */}
+                <div className="mt-2 p-3 rounded-xl bg-blue-50/50 border border-blue-100 flex items-center justify-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+                  <p className="text-xs font-medium text-slate-600">
+                    <span className="font-bold text-blue-600">Demo Note:</span> Default OTP for DEMO test is 1234
+                  </p>
+                </div>
+
                 <div className="flex items-center justify-center gap-2 text-xs font-bold text-green-600 bg-green-50 py-2.5 rounded-xl border border-green-100">
                   <FiCheckCircle size={14} /> SMS Verification Secured
                 </div>
